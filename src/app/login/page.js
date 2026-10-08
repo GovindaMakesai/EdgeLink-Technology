@@ -39,7 +39,7 @@ function LoginForm() {
         <span className="orb orb-violet" />
         <span className="orb orb-cyan" />
       </div>
-      <section className="login-card glass" style={{ padding: 28, position: 'relative', zIndex: 1 }}>
+      <section className="login-card glass" style={{ position: 'relative', zIndex: 1 }}>
         <LogoMark />
         <p className="eyebrow" style={{ marginTop: 16 }}>Sign in</p>
         <h2>EdgeLink console</h2>

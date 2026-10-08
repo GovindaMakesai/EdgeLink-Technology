@@ -6,7 +6,10 @@ const display = Syne({ subsets: ['latin'], variable: '--font-display', weight: [
 const sans = Outfit({ subsets: ['latin'], variable: '--font-sans', weight: ['300', '400', '500', '600'] });
 const mono = IBM_Plex_Mono({ subsets: ['latin'], variable: '--font-mono', weight: ['400', '500'] });
 
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://edgelinktechnology.vercel.app';
+
 export const metadata = {
+  metadataBase: new URL(appUrl),
   title: { default: 'EdgeLink SEO Intelligence', template: '%s · EdgeLink' },
   description: 'Queued SEO audits, live pipeline progress, and client-ready reports.',
 };

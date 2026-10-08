@@ -11,7 +11,7 @@ flowchart TD
   worker --> crawl[Fetch and Cheerio]
   worker --> mocks[PageSpeed GSC DataForSEO]
   worker --> analysis[On-page schema robots sitemap]
-  worker --> claude[Claude or deterministic fallback]
+  worker --> claude[Mock Claude or real Claude]
   claude --> db
   worker --> pdf[Puppeteer PDF]
   worker --> whatsapp[Twilio mock]
@@ -43,7 +43,7 @@ Jobs carry `{ auditId }`, retry three times with exponential backoff, and update
 5. On-page analysis.
 6. robots.txt and sitemap.xml.
 7. DataForSEO rankings.
-8. Claude, or the deterministic fallback.
+8. Mock Claude when `USE_REAL_CLAUDE` is not `true`. Real Claude when `USE_REAL_CLAUDE=true`, even if the other providers are mocked.
 9. Validate JSON, then save signals and the result.
 10. Render the PDF.
 11. WhatsApp mock and email log.
@@ -71,15 +71,15 @@ The schema is a production model for this assessment. The supplied brief did not
 
 ## Claude flow
 
-The system prompt and user prompt live in `src/ai/prompt.js`. Output is parsed, normalized, and checked for score bounds, enums, list caps, quick-win effort, and a three-sentence summary. Invalid output is retried once. If the key is missing, mocks are on, or both attempts fail, `src/ai/fallback.js` builds a valid report from the same signals. Malformed model JSON is never saved as the successful result.
+The system prompt and user prompt live in `src/ai/prompt.js`. Real Claude output is parsed, normalized, and checked for score bounds, enums, list caps, quick-win effort, and a three-sentence summary. Invalid output is retried once. If that retry fails, the audit fails and the mock brief is not substituted. `USE_MOCKS=true` never calls Claude. The default brief comes from `src/services/claude/claude.mock.js`.
 
 ## Report flow
 
-`src/reports/template.js` escapes every interpolated value. Puppeteer prints that HTML. `src/services/storage.js` writes only `*.pdf` basenames inside the reports directory. The download route checks the session and reads that file. Swap the storage module for object storage without changing the pipeline order.
+`src/reports/template.js` escapes every interpolated value. Puppeteer prints that HTML on the worker. `src/services/storage.js` uploads the PDF to a private Supabase Storage bucket when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are set. Local development writes the same basename under the OS temp reports directory. The download route checks the session and reads through that same storage module.
 
 ## Deployment
 
-Vercel hosts the Next.js UI and API. Supabase or Neon hosts Postgres. Upstash hosts Redis. cron-job.org calls the cron route. A separate Node service runs the worker, because a serverless function cannot stay subscribed to BullMQ.
+Vercel hosts the Next.js UI, API routes, and the BullMQ producer. Supabase hosts PostgreSQL and the private Storage bucket. Upstash hosts Redis. cron-job.org calls `POST /api/cron/audits`. A separate Node service runs `npm run worker`, because a serverless function cannot stay subscribed to BullMQ. The worker and Vercel must share `REDIS_URL`, `DATABASE_URL`, and the Storage credentials.
 
 ## Security
 
@@ -88,5 +88,5 @@ Vercel hosts the Next.js UI and API. Supabase or Neon hosts Postgres. Upstash ho
 - Cron requires `CRON_SECRET`.
 - Sessions are HMAC signed and httpOnly.
 - AI output is schema-checked.
-- Report paths cannot escape the storage directory.
+- Report names cannot escape the storage prefix, and the Storage key is never sent to the browser.
 - Audit creation is rate limited.

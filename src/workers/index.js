@@ -5,7 +5,7 @@ import { WORKER_HEARTBEAT_KEY, createRedisConnection, redisTarget } from '../que
 import { markAuditFailed, runAuditPipeline } from '../services/pipeline';
 import { prisma } from '../lib/prisma';
 import { resolveStorage } from '../services/storage';
-import { CLAUDE_MODEL } from '../ai/claude';
+import { realClaudeEnabled } from '../services/claude/claude.service';
 
 const storage = resolveStorage();
 if (storage.kind === 'missing') {
@@ -74,11 +74,10 @@ worker.on('error', (error) => {
 });
 
 worker.on('ready', () => {
-  const model = process.env.ANTHROPIC_MODEL || CLAUDE_MODEL;
   console.log(`[worker] listening on ${AUDIT_QUEUE_NAME}`);
   console.log(`[worker] redis ${redisTarget()}`);
   console.log(`[worker] storage ${storage.kind}${storage.kind === 'supabase' ? ` bucket ${storage.bucket}` : ''}`);
-  console.log(`[worker] claude ${process.env.ANTHROPIC_API_KEY ? model : 'deterministic-fallback'}`);
+  console.log(useRealClaude() ? '[AI] Using real Claude API' : '[AI] Using mock Claude implementation');
 });
 
 const timer = setInterval(() => {

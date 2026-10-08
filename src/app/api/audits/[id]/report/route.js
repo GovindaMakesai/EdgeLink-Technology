@@ -29,7 +29,10 @@ export async function GET(_request, { params }) {
     });
   } catch (error) {
     if (error.code === 'ENOENT') {
-      return NextResponse.json({ error: 'The report file is no longer on disk' }, { status: 404 });
+      return NextResponse.json({ error: 'The report file is no longer available' }, { status: 404 });
+    }
+    if (String(error.message || '').includes('Supabase Storage is not configured')) {
+      return NextResponse.json({ error: 'Report storage is not configured' }, { status: 503 });
     }
     return jsonError(error, 404);
   }

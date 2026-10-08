@@ -7,7 +7,7 @@ export function AuditTable({ audits, basePath }) {
     return (
       <div className="empty">
         <strong>No audits yet</strong>
-        <p>Start one from the admin console. The demo clinic is ready to run.</p>
+        <p>Start one from the admin console. The list fills in after the worker finishes.</p>
       </div>
     );
   }

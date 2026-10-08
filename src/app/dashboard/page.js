@@ -53,7 +53,7 @@ export default async function ClientHome() {
         })}
       </section>
       <section className="panel">
-        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div className="section-head">
           <h2>Previous audits</h2>
           <Link className="btn btn-ghost" href="/dashboard/audits">View all</Link>
         </div>

@@ -5,6 +5,8 @@ import { safeReportPath } from '../src/services/storage';
 
 describe('PDF report', () => {
   it('writes a non-empty PDF into the reports directory', async () => {
+    delete process.env.SUPABASE_URL;
+    delete process.env.SUPABASE_SERVICE_ROLE_KEY;
     const saved = await generatePdfReport({
       result: {
         overallScore: 64,
@@ -23,21 +25,23 @@ describe('PDF report', () => {
         }],
         executiveSummary: 'The clinic needs a crawlable homepage. Lab data shows a slow LCP. Search demand is already visible.',
       },
-      client: { name: 'Example Dental Clinic' },
-      website: { url: 'https://example-dental-clinic.com/' },
+      client: { name: 'Public demo site' },
+      website: { url: 'https://www.wikipedia.org/' },
       pagespeed: {
-        categories: { performance: { score: 0.61 } },
-        audits: { 'largest-contentful-paint': { displayValue: '4.2 s' } },
+        simulated: true,
+        note: 'Simulated PageSpeed lab data for the submitted URL.',
+        categories: { performance: { score: 0.78 } },
+        audits: { 'largest-contentful-paint': { displayValue: '2.8 s' } },
       },
-      gsc: { totalClicks: 167, totalImpressions: 4560, indexCoverageErrors: 3, rows: [] },
-      rankings: { client_rank_position: 4, keyword_search_volume: 1900, tasks: [] },
+      gsc: { simulated: true, disclaimer: 'Simulated Search Console data. Not from this website\'s Google Search Console account.', totalClicks: 120, totalImpressions: 1800, rows: [] },
+      rankings: { simulated: true, note: 'Simulated ranking sample for the submitted URL.', client_rank_position: 1, keyword_search_volume: 1200000, tasks: [] },
       technical: { statusCode: null, https: false, timingMs: null },
       onPage: { title: { value: '' }, metaDescription: { value: '' }, h1: { count: 0 }, content: { wordCount: 0 }, images: { missingAlt: 0 } },
       schema: { types: [], observations: ['No JSON-LD was found.'] },
-      businessType: 'Dental Clinic',
-      city: 'Pune',
-      state: 'Maharashtra',
-      targetKeyword: 'dental clinic pune',
+      businessType: 'Encyclopedia',
+      city: 'Global',
+      state: 'Worldwide',
+      targetKeyword: 'wikipedia',
       generatedAt: '8 Oct 2026',
     }, 'vitest-report.pdf');
 

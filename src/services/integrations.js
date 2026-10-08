@@ -2,9 +2,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { USE_MOCKS } = require('../mocks/index.js');
-const pagespeedMock = require('../mocks/pagespeed.mock.js');
-const gscMock = require('../mocks/gsc.mock.js');
-const dataforseoMock = require('../mocks/dataforseo.mock.js');
+const { buildPageSpeedMock, buildSearchConsoleMock, buildRankingsMock } = require('../mocks/simulated.js');
 const { sendWhatsApp: mockSendWhatsApp } = require('../mocks/twilio.mock.js');
 
 export function mocksEnabled() {
@@ -13,7 +11,7 @@ export function mocksEnabled() {
 
 export async function getPageSpeed(url) {
   if (USE_MOCKS) {
-    return structuredClone(pagespeedMock);
+    return buildPageSpeedMock(url);
   }
 
   const key = process.env.PAGESPEED_API_KEY;
@@ -55,9 +53,9 @@ export async function getPageSpeed(url) {
   };
 }
 
-export async function getSearchConsole({ siteUrl }) {
+export async function getSearchConsole({ siteUrl, keyword }) {
   if (USE_MOCKS) {
-    return structuredClone(gscMock);
+    return buildSearchConsoleMock({ siteUrl, keyword });
   }
 
   const token = process.env.GSC_ACCESS_TOKEN;

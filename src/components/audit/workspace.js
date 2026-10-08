@@ -121,9 +121,11 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
             </div>
             <p className="lede">{live.progress || 0}% · {audit.businessType} · {audit.city}, {audit.state}</p>
           </div>
-          {result?.aiSource === 'deterministic-fallback' ? (
-            <div style={{ marginTop: 12 }}><Badge tone="violet">Development fallback</Badge></div>
-          ) : null}
+          <div style={{ marginTop: 12 }}>
+            <Badge tone={(result?.aiSource || live.aiSource) === 'claude' ? 'good' : 'violet'}>
+              AI Analysis: {(result?.aiSource || live.aiSource) === 'claude' ? 'Claude API' : 'Mock Mode'}
+            </Badge>
+          </div>
         </article>
         <article className="panel">
           <PipelineRail
@@ -155,6 +157,7 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
             </article>
             <article className="panel">
               <h2>Core Web Vitals</h2>
+              {pagespeed.simulated ? <p className="form-note">Simulated PageSpeed lab data for this URL. Not a live PageSpeed Insights response.</p> : null}
               <div className="cwv-grid" style={{ marginTop: 14 }}>
                 {cwv.map(([label, display, score]) => (
                   <div className="cwv" key={label}>
@@ -228,10 +231,14 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
           <section className="split-2">
             <article className="panel">
               <h2>Queries</h2>
+              <p className="form-note">
+                {audit.signals?.gsc?.disclaimer || 'Search Console figures.'}
+              </p>
               <p className="lede">
-                {formatNumber(audit.signals?.gsc?.totalClicks)} clicks · {formatNumber(audit.signals?.gsc?.totalImpressions)} impressions · {audit.signals?.gsc?.indexCoverageErrors ?? '—'} coverage errors
+                Illustrative clicks {formatNumber(audit.signals?.gsc?.totalClicks)} · illustrative impressions {formatNumber(audit.signals?.gsc?.totalImpressions)}
               </p>
               <QueryChart rows={audit.signals?.gsc?.rows} />
+              <div className="table-wrap">
               <table className="data">
                 <thead>
                   <tr><th>Query</th><th>Clicks</th><th>Impr.</th><th>CTR</th><th>Pos.</th></tr>
@@ -248,11 +255,13 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             </article>
             <article className="panel">
               <h2>Rankings</h2>
+              {audit.signals?.rankings?.simulated ? <p className="form-note">Simulated ranking sample for the submitted URL. Not a live DataForSEO response.</p> : null}
               <p className="lede">
-                Position {audit.signals?.rankings?.client_rank_position ?? '—'} · volume {formatNumber(audit.signals?.rankings?.keyword_search_volume)}
+                Illustrative position {audit.signals?.rankings?.client_rank_position ?? '—'} · illustrative volume {formatNumber(audit.signals?.rankings?.keyword_search_volume)}
               </p>
               <RankBars items={audit.signals?.rankings?.tasks?.[0]?.result?.[0]?.items} />
               <h2 style={{ marginTop: 22 }}>Schema and crawl</h2>
@@ -266,6 +275,7 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
 
       <section className="panel" style={{ marginTop: 16 }}>
         <h2>Delivery and history</h2>
+        <div className="table-wrap">
         <table className="data">
           <thead><tr><th>When</th><th>Channel</th><th>Status</th><th>Reference</th></tr></thead>
           <tbody>
@@ -279,6 +289,8 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
             )) : <tr><td colSpan={4}>Delivery is recorded after the report step.</td></tr>}
           </tbody>
         </table>
+        </div>
+        <div className="table-wrap">
         <table className="data">
           <thead><tr><th>Previous audits</th><th>Status</th><th>Score</th></tr></thead>
           <tbody>
@@ -291,6 +303,7 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

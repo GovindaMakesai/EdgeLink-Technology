@@ -1,12 +1,14 @@
 # Demo
 
-Example Dental Clinic is fixture data for this assessment, not a customer.
+The new-audit form prefills `DEMO_TARGET_URL` from the environment. The default is `https://www.edgelinktechnology.com/`. Replace that URL with any other public website before starting an audit.
 
-- URL: `https://example-dental-clinic.com`
-- Business type: Dental Clinic
-- City: Pune
-- State: Maharashtra
-- Keyword: `dental clinic pune`
+- URL: `https://www.edgelinktechnology.com/`
+- Business type: Software company
+- City: leave blank and type the real city
+- State: leave blank and type the real state
+- Keyword: `edgelink technology`
+
+PageSpeed, Search Console, and ranking rows in mock mode are simulated samples tied to the submitted URL. They are not the site owner's private Search Console property. Claude runs when `USE_REAL_CLAUDE=true`, including while `USE_MOCKS=true`.
 
 ## Prepare
 
@@ -18,7 +20,7 @@ npm run dev
 npm run worker
 ```
 
-`.env` needs `USE_MOCKS=true`, `DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `AUTH_SECRET`, and `CRON_SECRET`. Claude can be empty.
+`.env` needs `USE_MOCKS=true`, `USE_REAL_CLAUDE=true`, `DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `AUTH_SECRET`, and `CRON_SECRET`. `ANTHROPIC_API_KEY` stays on the server. PageSpeed, Search Console, and rankings stay mocked. Claude runs when the flag is true.
 
 ## Click path
 
@@ -41,5 +43,5 @@ The command-line equivalent is `npm run e2e:audit`.
 - PageSpeed values include LCP `4.2 s`, CLS `0.08`, and INP `280 ms` while mocks are on.
 - Search Console totals are 167 clicks and 4560 impressions.
 - Ranking position is 4 for the dental keyword sample.
-- If Claude is not configured, a **Development fallback** badge is shown. The recommendations are still a real structured result, not an error message.
+- The audit shows **AI Analysis: Claude API** and stores source `claude` when `USE_REAL_CLAUDE=true`. With the flag off, it shows **AI Analysis: Mock Mode** and stores source `mock`.
 - The worker terminal prints the three `[MOCK WHATSAPP]` lines.

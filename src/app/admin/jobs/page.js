@@ -22,6 +22,7 @@ export default async function JobsPage() {
       </header>
       <section className="panel">
         {jobs.length ? (
+          <div className="table-wrap">
           <table className="data">
             <thead><tr><th>Client</th><th>Stage</th><th>Progress</th><th>Attempts</th><th>When</th><th /></tr></thead>
             <tbody>
@@ -37,6 +38,7 @@ export default async function JobsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <div className="empty"><strong>Queue is empty</strong><p>Start an audit to enqueue the first job.</p></div>
         )}

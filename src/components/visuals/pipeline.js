@@ -7,7 +7,7 @@ export function PipelineRail({ status, currentStep, startedAt, completedAt }) {
   const elapsed = elapsedLabel(startedAt, status === 'COMPLETED' || status === 'FAILED' ? completedAt : null);
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+      <div className="section-head" style={{ marginBottom: 12 }}>
         <span className="label">Audit pipeline</span>
         {elapsed ? <span className="label">{elapsed}</span> : null}
       </div>

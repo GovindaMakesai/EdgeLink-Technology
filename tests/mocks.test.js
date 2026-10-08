@@ -15,28 +15,30 @@ describe('mock switch and payloads', () => {
     expect(process.env.USE_MOCKS).toBe('true');
   });
 
-  it('returns the required PageSpeed sample', () => {
-    expect(pagespeed.categories.performance.score).toBe(0.61);
-    expect(pagespeed.categories.seo.score).toBe(0.89);
-    expect(pagespeed.audits['largest-contentful-paint'].displayValue).toBe('4.2 s');
-    expect(pagespeed.audits['cumulative-layout-shift'].displayValue).toBe('0.08');
-    expect(pagespeed.audits['interaction-to-next-paint'].displayValue).toBe('280 ms');
-    expect(pagespeed.audits['unused-javascript'].displayValue).toBe('420 KiB');
+  it('returns simulated PageSpeed data for the submitted URL', () => {
+    expect(pagespeed.simulated).toBe(true);
+    expect(pagespeed.source).toBe('mock');
+    expect(pagespeed.url).toBe('https://www.wikipedia.org/');
+    expect(pagespeed.categories.performance.score).toBe(0.78);
+    expect(pagespeed.audits['largest-contentful-paint'].displayValue).toBe('2.8 s');
+    expect(pagespeed.note).toContain('Simulated PageSpeed');
   });
 
-  it('returns the required Search Console sample', () => {
+  it('returns simulated Search Console data tied to the submitted site', () => {
+    expect(gsc.simulated).toBe(true);
     expect(gsc.rows).toHaveLength(5);
-    expect(gsc.totalClicks).toBe(167);
-    expect(gsc.totalImpressions).toBe(4560);
-    expect(gsc.indexCoverageErrors).toBe(3);
-    expect(gsc.rows[0].query).toBe('dental clinic in pune');
+    expect(gsc.siteUrl).toBe('https://www.wikipedia.org/');
+    expect(gsc.rows[0].query).toBe('wikipedia');
+    expect(gsc.disclaimer).toContain('not from this website');
+    expect(gsc.indexCoverageErrors).toBeNull();
   });
 
-  it('returns the required DataForSEO sample', () => {
-    expect(rankings.client_rank_position).toBe(4);
-    expect(rankings.keyword_search_volume).toBe(1900);
-    expect(rankings.tasks[0].result[0].items[0].domain).toBe('exampledental-clinic.com');
-    expect(rankings.tasks[0].result[0].items[1].rank_absolute).toBe(8);
+  it('returns simulated ranking data for the submitted domain', () => {
+    expect(rankings.simulated).toBe(true);
+    expect(rankings.client_rank_position).toBe(1);
+    expect(rankings.tasks[0].result[0].keyword).toBe('wikipedia');
+    expect(rankings.tasks[0].result[0].items[0].domain).toBe('wikipedia.org');
+    expect(rankings.note).toContain('Simulated ranking sample');
   });
 
   it('logs the WhatsApp mock and returns a mock sid', async () => {

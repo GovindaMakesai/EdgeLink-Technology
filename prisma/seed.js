@@ -7,15 +7,15 @@ async function main() {
   const client = await prisma.client.upsert({
     where: { id: 'demo-client-edgelink' },
     update: {
-      name: 'Example Dental Clinic',
-      email: 'demo-clinic@edgelink.local',
+      name: 'Public demo site',
+      email: 'demo-site@edgelink.local',
       phone: '+910000000000',
       isDemo: true,
     },
     create: {
       id: 'demo-client-edgelink',
-      name: 'Example Dental Clinic',
-      email: 'demo-clinic@edgelink.local',
+      name: 'Public demo site',
+      email: 'demo-site@edgelink.local',
       phone: '+910000000000',
       isDemo: true,
     },
@@ -25,27 +25,27 @@ async function main() {
     where: {
       clientId_url: {
         clientId: client.id,
-        url: 'https://example-dental-clinic.com/',
+        url: 'https://www.wikipedia.org/',
       },
     },
     update: {
-      businessType: 'Dental Clinic',
-      city: 'Pune',
-      state: 'Maharashtra',
-      targetKeyword: 'dental clinic pune',
+      businessType: 'Encyclopedia',
+      city: 'Global',
+      state: 'Worldwide',
+      targetKeyword: 'wikipedia',
     },
     create: {
       clientId: client.id,
-      url: 'https://example-dental-clinic.com/',
-      domain: 'example-dental-clinic.com',
-      businessType: 'Dental Clinic',
-      city: 'Pune',
-      state: 'Maharashtra',
-      targetKeyword: 'dental clinic pune',
+      url: 'https://www.wikipedia.org/',
+      domain: 'wikipedia.org',
+      businessType: 'Encyclopedia',
+      city: 'Global',
+      state: 'Worldwide',
+      targetKeyword: 'wikipedia',
     },
   });
 
-  console.log('Seeded demo client Example Dental Clinic');
+  console.log('Seeded demo client Public demo site');
 }
 
 main()

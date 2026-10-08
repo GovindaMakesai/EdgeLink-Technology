@@ -1,6 +1,7 @@
 import { Shell } from '@/components/layout/shell';
 import { requireUser } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { realClaudeEnabled } from '@/services/claude/claude.service';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +14,7 @@ export default async function DashboardLayout({ children }) {
     label = client?.name || label;
   }
   return (
-    <Shell role="client" userLabel={label} mockMode={process.env.USE_MOCKS === 'true'}>
+    <Shell role="client" userLabel={label} mockMode={process.env.USE_MOCKS === 'true'} claudeLive={realClaudeEnabled()}>
       {children}
     </Shell>
   );

@@ -32,7 +32,7 @@ export function ScoreRing({ score, caption = 'SEO health', delta }) {
   return (
     <div className="ring-wrap">
       <div className="ring" aria-hidden="true">
-        <svg width="168" height="168" viewBox="0 0 168 168">
+        <svg viewBox="0 0 168 168" aria-hidden="true">
           <circle cx="84" cy="84" r={radius} stroke="rgba(255,255,255,0.08)" strokeWidth="10" fill="none" />
           <circle
             cx="84"

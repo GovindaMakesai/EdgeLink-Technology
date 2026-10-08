@@ -35,8 +35,21 @@ export const auditResultSchema = z.object({
   executive_summary: z.string().trim().min(20).max(900),
 });
 
+function limitSentences(text, max = 3) {
+  let result = String(text || '').trim();
+  while (sentenceCount(result) > max) {
+    const shorter = result.replace(/[.!?][^.!?]*$/, '').trim();
+    if (!shorter || shorter === result) break;
+    result = shorter;
+  }
+  return result;
+}
+
 function sentenceCount(text) {
-  return String(text)
+  const cleaned = String(text)
+    .replace(/\b\d+\.\d+\b/g, (match) => match.replace('.', ''))
+    .replace(/\b(?:[a-z0-9-]+\.)+[a-z]{2,}\b/gi, (match) => match.replaceAll('.', ''));
+  return cleaned
     .split(/[.!?]+/)
     .map((part) => part.trim())
     .filter(Boolean).length;
@@ -48,6 +61,29 @@ function asString(value) {
     return String(value.finding || value.fix || value.action || value.text || '').trim();
   }
   return '';
+}
+
+function clip(value, max) {
+  const text = asString(value);
+  return text.length > max ? text.slice(0, max).trim() : text;
+}
+
+function categoryOf(value) {
+  const key = String(value || '').toLowerCase().replace(/[\s_-]+/g, '');
+  const map = {
+    technical: 'Technical',
+    onpage: 'OnPage',
+    content: 'Content',
+    schema: 'Schema',
+    cwv: 'CWV',
+    corewebvitals: 'CWV',
+  };
+  return map[key] || value;
+}
+
+function priorityOf(value) {
+  const key = String(value || '').toUpperCase();
+  return ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW'].includes(key) ? key : value;
 }
 
 function roundScore(value) {
@@ -85,11 +121,11 @@ export function normalizeAiPayload(input) {
       schema: roundScore(breakdown.schema),
     },
     critical_issues: (Array.isArray(source.critical_issues) ? source.critical_issues : [])
-      .map(asString)
+      .map((item) => clip(item, 400))
       .filter(Boolean)
       .slice(0, 5),
     important_issues: (Array.isArray(source.important_issues) ? source.important_issues : [])
-      .map(asString)
+      .map((item) => clip(item, 400))
       .filter(Boolean)
       .slice(0, 8),
     quick_wins: quickWins.slice(0, 5).map((item) => {
@@ -104,8 +140,8 @@ export function normalizeAiPayload(input) {
       }
       const hours = Number(item?.estimated_hours ?? 1);
       return {
-        finding: asString(item?.finding || item),
-        fix: asString(item?.fix || item?.finding || item),
+        finding: clip(item?.finding || item, 400),
+        fix: clip(item?.fix || item?.finding || item, 400),
         effort: 'Hours',
         estimated_hours: Number.isFinite(hours) ? Math.min(2, Math.max(0.25, hours)) : 1,
         estimated_impact: ['High', 'Medium', 'Low'].includes(item?.estimated_impact)
@@ -114,15 +150,15 @@ export function normalizeAiPayload(input) {
       };
     }),
     recommendations: recommendations.slice(0, 20).map((item) => ({
-      priority: item?.priority,
-      category: item?.category,
-      finding: asString(item?.finding),
-      fix: asString(item?.fix),
-      estimated_impact: item?.estimated_impact,
-      effort: item?.effort,
-      falsifiability_check: asString(item?.falsifiability_check),
+      priority: priorityOf(item?.priority),
+      category: categoryOf(item?.category),
+      finding: clip(item?.finding, 500),
+      fix: clip(item?.fix, 800),
+      estimated_impact: ['High', 'Medium', 'Low'].includes(item?.estimated_impact) ? item.estimated_impact : 'Medium',
+      effort: ['Hours', 'Days', 'Weeks'].includes(item?.effort) ? item.effort : 'Days',
+      falsifiability_check: clip(item?.falsifiability_check, 400),
     })),
-    executive_summary: asString(source.executive_summary),
+    executive_summary: clip(limitSentences(source.executive_summary, 3), 900),
   };
 }
 

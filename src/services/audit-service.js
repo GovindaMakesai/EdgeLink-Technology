@@ -1,17 +1,20 @@
 import { prisma } from '../lib/prisma';
+import { demoFormDefaults } from '../lib/demo-target';
 import { assertPublicHttpUrl } from '../validations/url';
 import { domainFromUrl } from '../lib/utils';
 import { enqueueAudit } from '../queues/audit-queue';
 
+const demoDefaults = demoFormDefaults();
+
 const DEMO = {
-  name: 'Example Dental Clinic',
-  email: 'demo-clinic@edgelink.local',
+  name: 'Public demo site',
+  email: 'demo-site@edgelink.local',
   phone: '+910000000000',
-  url: 'https://example-dental-clinic.com/',
-  businessType: 'Dental Clinic',
-  city: 'Pune',
-  state: 'Maharashtra',
-  targetKeyword: 'dental clinic pune',
+  url: demoDefaults.url,
+  businessType: demoDefaults.businessType,
+  city: demoDefaults.city,
+  state: demoDefaults.state,
+  targetKeyword: demoDefaults.targetKeyword,
 };
 
 export async function ensureDemoClient() {
@@ -20,6 +23,12 @@ export async function ensureDemoClient() {
     include: { websites: true },
   });
   if (existing) {
+    if (existing.name === 'Example Dental Clinic') {
+      await prisma.client.update({
+        where: { id: existing.id },
+        data: { name: DEMO.name },
+      });
+    }
     const website = existing.websites.find((item) => item.url === DEMO.url) || existing.websites[0];
     if (!website) {
       await prisma.website.create({

@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/prisma';
 import { createRedisConnection } from '@/queues/connection';
+import { realClaudeEnabled } from '@/services/claude/claude.service';
+import { resolveStorage } from '@/services/storage';
 import { Badge } from '@/components/ui/primitives';
 
 export const dynamic = 'force-dynamic';
@@ -30,12 +32,11 @@ export default async function SettingsPage() {
   const [database, redis] = await Promise.all([checkDatabase(), checkRedis()]);
   const rows = [
     ['Mock mode', process.env.USE_MOCKS === 'true' ? 'On' : 'Off'],
-    ['Claude key', process.env.ANTHROPIC_API_KEY ? 'Configured' : 'Missing — development fallback'],
-    ['Model', process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'],
+    ['AI analysis', realClaudeEnabled() ? 'Claude API' : 'Mock Mode'],
     ['Database', database ? 'Connected' : 'Unreachable'],
     ['Redis', redis ? 'Connected' : 'Unreachable'],
     ['Cron secret', process.env.CRON_SECRET ? 'Configured' : 'Missing'],
-    ['Report storage', 'Local temp directory'],
+    ['Report storage', resolveStorage().kind === 'supabase' ? 'Supabase Storage' : resolveStorage().kind === 'local' ? 'Local disk' : 'Missing'],
   ];
   return (
     <div>
@@ -49,7 +50,7 @@ export default async function SettingsPage() {
       <section className="panel">
         <ul className="plain-list">
           {rows.map(([label, value]) => (
-            <li key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <li key={label} className="stat-row">
               <span>{label}</span>
               <Badge tone={String(value).includes('Unreachable') || String(value).includes('Missing') ? 'watch' : 'good'}>{value}</Badge>
             </li>

@@ -246,9 +246,11 @@ export function buildFallbackAnalysis(input) {
     });
   }
 
-  const clickSentence = typeof clicks === 'number'
-    ? `Search Console still shows ${clicks} recent clicks, so demand exists while the page experience catches up.`
-    : 'Search demand should be rechecked once the page is consistently crawlable.';
+  const clickSentence = gsc?.simulated
+    ? 'Search Console figures in this audit are simulated and are not the site owner\'s private property data.'
+    : typeof clicks === 'number'
+      ? `Search Console still shows ${clicks} recent clicks, so demand exists while the page experience catches up.`
+      : 'Search demand should be rechecked once the page is consistently crawlable.';
 
   const summary = sentences([
     `${business} in ${city} currently scores ${overall}/100 from the combined on-page, technical, and lab signals.`,

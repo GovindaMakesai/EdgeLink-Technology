@@ -26,12 +26,12 @@ async function shutdown(code) {
 async function main() {
   await ensureDemoClient();
   const audit = await createAuditRecord({
-    url: 'https://example-dental-clinic.com',
-    clientName: 'Example Dental Clinic',
-    businessType: 'Dental Clinic',
-    city: 'Pune',
-    state: 'Maharashtra',
-    targetKeyword: 'dental clinic pune',
+    url: 'https://www.wikipedia.org/',
+    clientName: 'Public demo site',
+    businessType: 'Encyclopedia',
+    city: 'Global',
+    state: 'Worldwide',
+    targetKeyword: 'wikipedia',
   });
 
   console.log(`[e2e] queued ${audit.id} job ${audit.bullJobId}`);

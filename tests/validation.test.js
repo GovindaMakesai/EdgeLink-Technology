@@ -12,14 +12,14 @@ import { isCronAuthorized } from '../src/lib/cron-auth';
 describe('audit input and URL safety', () => {
   it('accepts the demo audit payload', () => {
     const parsed = createAuditSchema.parse({
-      url: 'https://example-dental-clinic.com',
+      url: 'https://www.wikipedia.org/',
       clientId: 'demo-client-edgelink',
-      businessType: 'Dental Clinic',
-      city: 'Pune',
-      state: 'Maharashtra',
-      targetKeyword: 'dental clinic pune',
+      businessType: 'Encyclopedia',
+      city: 'Global',
+      state: 'Worldwide',
+      targetKeyword: 'wikipedia',
     });
-    expect(parsed.city).toBe('Pune');
+    expect(parsed.city).toBe('Global');
   });
 
   it('rejects incomplete audit input', () => {
@@ -36,13 +36,13 @@ describe('audit input and URL safety', () => {
     expect(() => assertPublicHttpUrl('http://127.0.0.1/admin')).toThrow(/not allowed|Private/);
     expect(() => assertPublicHttpUrl('http://localhost/secret')).toThrow(/not allowed/);
     expect(() => assertPublicHttpUrl('file:///etc/passwd')).toThrow(/http/);
-    expect(assertPublicHttpUrl('https://example-dental-clinic.com').hostname).toBe('example-dental-clinic.com');
+    expect(assertPublicHttpUrl('https://www.wikipedia.org/').hostname).toBe('www.wikipedia.org');
   });
 });
 
 describe('AI result validation', () => {
   it('uses the assessment system prompt', () => {
-    expect(SYSTEM_PROMPT.startsWith('You are a senior SEO analyst with 15+ years experience')).toBe(true);
+    expect(SYSTEM_PROMPT.startsWith('You are a senior SEO analyst.')).toBe(true);
     expect(SYSTEM_PROMPT).toContain('falsifiability_check');
   });
 
@@ -90,18 +90,22 @@ describe('AI result validation', () => {
     expect(normalized.critical_issues).toHaveLength(5);
     expect(normalized.quick_wins[0].effort).toBe('Hours');
     expect(normalized.quick_wins[0].estimated_hours).toBeLessThanOrEqual(2);
-    const validated = validateAuditResult({ ...normalized, executive_summary: 'One. Two. Three. Four.' });
-    expect(validated.ok).toBe(false);
+    const validated = validateAuditResult({
+      ...normalized,
+      executive_summary: 'The homepage title is too short for the query. The meta description is missing a clear offer. The mobile experience needs a faster first paint. A fourth sentence should be dropped.',
+    });
+    expect(validated.ok).toBe(true);
+    expect(validated.data.executive_summary).not.toContain('fourth sentence');
   });
 
   it('builds a deterministic fallback that passes the schema', () => {
     const result = buildFallbackAnalysis({
-      url: 'https://example-dental-clinic.com/',
-      businessType: 'Dental Clinic',
-      city: 'Pune',
-      state: 'Maharashtra',
-      keyword: 'dental clinic pune',
-      crawl: { ok: false, error: 'Could not resolve example-dental-clinic.com', wordCount: 0, https: false, robots: { exists: false }, imagesWithoutAlt: 2 },
+      url: 'https://www.wikipedia.org/',
+      businessType: 'Encyclopedia',
+      city: 'Global',
+      state: 'Worldwide',
+      keyword: 'wikipedia',
+      crawl: { ok: false, error: 'Could not reach the submitted host', wordCount: 0, https: false, robots: { exists: false }, imagesWithoutAlt: 2 },
       onPage: analyzeEmptyOnPage(),
       technical: { findings: [{ severity: 'critical', message: 'unreachable' }] },
       schema: { present: false, types: [], malformed: [], relevantTypes: [], findings: [] },

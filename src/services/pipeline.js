@@ -3,7 +3,7 @@ import { stepMeta } from '../lib/steps';
 import { crawlUrl } from '../crawlers/crawler';
 import { analyzeOnPage, analyzeTechnical, analyzeSchema, analyzeRobotsAndSitemap } from './analyzers';
 import { getPageSpeed, getSearchConsole, getRankings, sendWhatsApp, sendReportEmail } from './integrations';
-import { analyzeSignals } from '../ai/claude';
+import { analyzeSeoData } from './claude/claude.service';
 import { generatePdfReport } from '../reports/pdf';
 
 function isTransient(error) {
@@ -198,7 +198,7 @@ export async function runAuditPipeline(auditId, options = {}) {
     await capture(signals, 'pagespeed', 'pagespeed', () => getPageSpeed(audit.website.url));
 
     await setStage(audit.id, jobRecordId, 'search-console', {}, options.onProgress);
-    await capture(signals, 'gsc', 'search-console', () => getSearchConsole({ siteUrl: audit.website.url }));
+    await capture(signals, 'gsc', 'search-console', () => getSearchConsole({ siteUrl: audit.website.url, keyword: audit.targetKeyword }));
 
     await setStage(audit.id, jobRecordId, 'schema', {}, options.onProgress);
     signals.schema = analyzeSchema(signals.crawl);
@@ -211,7 +211,7 @@ export async function runAuditPipeline(auditId, options = {}) {
     signals.robots = analyzeRobotsAndSitemap(signals.crawl);
 
     await setStage(audit.id, jobRecordId, 'rankings', {}, options.onProgress);
-    await capture(signals, 'rankings', 'rankings', () => getRankings({ keyword: audit.targetKeyword }));
+    await capture(signals, 'rankings', 'rankings', () => getRankings({ keyword: audit.targetKeyword, url: audit.website.url }));
 
     await setStage(audit.id, jobRecordId, 'ai-analysis', {}, options.onProgress);
     const analysis = await analyzeSignals({

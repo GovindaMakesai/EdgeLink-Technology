@@ -50,7 +50,7 @@ export default async function AdminHome() {
             <div>
               <span className="label">Latest audit</span>
               <h2 style={{ marginTop: 8 }}>{latest ? latest.status.replaceAll('_', ' ') : 'Nothing queued'}</h2>
-              <p className="lede">The demo clinic is prefilled on the new audit screen.</p>
+              <p className="lede">The demo URL is prefilled. Replace it with any public website.</p>
             </div>
           )}
           {latest?.result ? <div style={{ marginTop: 18 }}><BreakdownBars breakdown={latest.result.scoreBreakdown} /></div> : null}

@@ -107,6 +107,7 @@ export function renderReportHtml(report) {
     </table>
 
     <h2>Core Web Vitals</h2>
+    <p class="muted">${escapeHtml(pagespeed.simulated ? (pagespeed.note || 'Simulated PageSpeed lab data for the submitted URL. Not a live PageSpeed Insights response.') : 'Lab data')}</p>
     <table>
       ${scoreRow('Performance', pagespeed.categories?.performance?.score ?? '—')}
       ${scoreRow('LCP', audits['largest-contentful-paint']?.displayValue || '—')}

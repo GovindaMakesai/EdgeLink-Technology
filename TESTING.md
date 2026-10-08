@@ -54,6 +54,7 @@ See [DEMO.md](DEMO.md).
 - Bad URL or private host: API returns 400 and no job is created.
 - Redis down: audit row is saved as `FAILED` and the API returns 503.
 - Unreachable website: crawl error is stored, mocks still fill PageSpeed, GSC, and rankings, and the audit can complete.
-- Invalid Claude JSON: one retry, then the deterministic fallback. The result source is `deterministic-fallback`.
+- `USE_MOCKS=true` never calls Claude. The stored source is `mock`.
+- A real Claude JSON failure is retried once, then the audit fails. The mock brief is not substituted.
 - PDF crash: job retries, then `FAILED` with the error on the audit screen. Retry from that screen.
 - Wrong cron secret: 401 and nothing is queued.

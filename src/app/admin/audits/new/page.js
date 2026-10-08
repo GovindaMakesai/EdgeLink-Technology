@@ -1,6 +1,7 @@
 import { AuditForm } from '@/components/audit/form';
 import { ensureDemoClient } from '@/services/audit-service';
 import { prisma } from '@/lib/prisma';
+import { demoFormDefaults } from '@/lib/demo-target';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,10 +14,13 @@ export default async function NewAuditPage() {
         <div>
           <p className="eyebrow">New audit</p>
           <h1>Start SEO audit</h1>
-          <p className="lede">The dental clinic defaults match the assessment demo. Change them for any other site.</p>
+          <p className="lede">The URL is prefilled from the demo target. Replace it with any other public website before you start.</p>
         </div>
       </header>
-      <AuditForm clients={clients.map((client) => ({ id: client.id, name: client.name, isDemo: client.isDemo }))} />
+      <AuditForm
+        clients={clients.map((client) => ({ id: client.id, name: client.name, isDemo: client.isDemo }))}
+        defaults={demoFormDefaults()}
+      />
     </div>
   );
 }

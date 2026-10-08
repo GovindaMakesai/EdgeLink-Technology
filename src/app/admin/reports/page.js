@@ -20,6 +20,7 @@ export default async function ReportsPage() {
       </header>
       <section className="panel">
         {reports.length ? (
+          <div className="table-wrap">
           <table className="data">
             <thead><tr><th>Client</th><th>Score</th><th>Size</th><th>Created</th><th /></tr></thead>
             <tbody>
@@ -37,6 +38,7 @@ export default async function ReportsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         ) : <div className="empty"><strong>No reports yet</strong><p>A PDF is written when an audit reaches the report stage.</p></div>}
       </section>
     </div>

@@ -1,6 +1,28 @@
 # EdgeLink Technology
 
-EdgeLink SEO Intelligence is a full-stack SEO automation dashboard for the EdgeLink technical assessment. An admin queues an audit, a BullMQ worker crawls the site, collects mocked search and performance signals, asks Claude (or a deterministic fallback) for a structured brief, stores the result in PostgreSQL, writes a PDF, and records a mock WhatsApp delivery.
+EdgeLink SEO Intelligence is a full-stack SEO automation dashboard for the EdgeLink technical assessment. An admin queues an audit, a BullMQ worker crawls the site, collects mocked search and performance signals, builds a structured SEO brief, stores the result in PostgreSQL, writes a PDF, and records a mock WhatsApp delivery.
+
+## Safe Testing / Claude API Usage
+
+The assessment demo mocks PageSpeed, Search Console, DataForSEO, and WhatsApp, and calls Claude when `USE_REAL_CLAUDE=true`. An empty key means no request is sent. Do not commit the key or prefix it with `NEXT_PUBLIC_`.
+
+```env
+USE_MOCKS=true
+USE_REAL_CLAUDE=false
+ANTHROPIC_API_KEY=
+```
+
+With those values, a full audit still runs: dashboard, BullMQ, Redis, worker, mock PageSpeed, mock Search Console, mock DataForSEO, mock Claude, PostgreSQL, and PDF. The audit screen shows **AI Analysis: Mock Mode**. The worker log says `[AI] Using mock Claude implementation`.
+
+`USE_MOCKS=true` mocks PageSpeed, Search Console, DataForSEO, and WhatsApp. It does not block Claude. Real Claude runs when `USE_REAL_CLAUDE=true` and `ANTHROPIC_API_KEY` is set, including while those providers stay mocked.
+
+```env
+USE_MOCKS=true
+USE_REAL_CLAUDE=true
+ANTHROPIC_API_KEY=your_key
+```
+
+That path shows **AI Analysis: Claude API** and the worker log says `[AI] Using real Claude API`. A failed Claude request does not silently switch back to the mock brief. Keep the key in the ignored `.env` file only. Do not commit it, print it, or prefix it with `NEXT_PUBLIC_`.
 
 ## Features
 
@@ -9,7 +31,7 @@ EdgeLink SEO Intelligence is a full-stack SEO automation dashboard for the EdgeL
 - Fetch + Cheerio crawl, on-page, technical, schema, robots.txt, and sitemap checks
 - PageSpeed, Google Search Console, and DataForSEO behind one mock switch
 - Claude analysis with strict JSON validation and a development fallback
-- Puppeteer PDF reports stored in the OS temp reports directory
+- Puppeteer PDF reports stored in Supabase Storage, with local disk only for development
 - Mock Twilio WhatsApp plus a logged email handoff
 - Cron endpoint for scheduled audits
 - Demo client: Example Dental Clinic, Pune
@@ -44,23 +66,28 @@ tests              unit and integration tests
 
 ## Environment variables
 
-Copy `.env.example` to `.env`.
+Copy `.env.example` to `.env`. Never commit `.env`. If the database password contains `@`, encode it as `%40`.
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
 | `DATABASE_URL` | Yes | PostgreSQL connection |
 | `DIRECT_URL` | Yes | Direct PostgreSQL URL for Prisma |
-| `USE_MOCKS` | Yes | `true` uses the assessment mocks |
-| `REDIS_URL` | Yes | Redis or Upstash connection |
-| `REDIS_TOKEN` | Upstash if not in the URL | Optional password |
-| `ANTHROPIC_API_KEY` | No | Empty uses the deterministic fallback |
-| `CRON_SECRET` | For cron | Protects `POST /api/cron/audits` |
 | `AUTH_SECRET` | Yes | Signs the session cookie |
-| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Yes | Admin sign-in |
-| `ALLOW_DEMO_LOGIN` | Local demo | `true` shows one-click demo entry |
-| `NEXT_PUBLIC_APP_URL` | Yes | Public origin |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Yes | Admin password sign-in |
+| `REDIS_URL` | Yes | Shared Upstash Redis for the API producer and the worker |
+| `REDIS_TOKEN` | Only if the URL has no password | Optional Redis password |
+| `USE_REAL_CLAUDE` | No | `true` calls Claude even while `USE_MOCKS=true` |
+| `ANTHROPIC_API_KEY` | Only for a real Claude test | Leave empty. Never commit a real key |
+| `ANTHROPIC_MODEL` | No | Defaults to `claude-sonnet-4-6` |
+| `USE_MOCKS` | Yes | `true` mocks PageSpeed, GSC, DataForSEO, and Twilio |
+| `CRON_SECRET` | For cron | Protects `POST /api/cron/audits` |
+| `ALLOW_DEMO_LOGIN` | Public deploy | Set `false` outside a private demo |
+| `SUPABASE_URL` | Production | Supabase project URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Production | Server-only Storage access |
+| `SUPABASE_STORAGE_BUCKET` | Production | Private bucket, default `audit-reports` |
+| `NEXT_PUBLIC_APP_URL` | Production | Public origin, `https://edgelinktechnology.vercel.app` |
 
-Never commit `.env`. If the database password contains `@`, encode it as `%40`.
+`USE_MOCKS=true` skips Claude. The API key stays on the server and is never required for this mode.
 
 ### Supabase
 
@@ -77,7 +104,7 @@ Use the Redis URL from the Upstash console. `rediss://` URLs already include the
 
 ### Anthropic
 
-Set `ANTHROPIC_API_KEY` to call Claude. The model is `claude-sonnet-4-6` unless `ANTHROPIC_MODEL` overrides it. With no key, or with `USE_MOCKS=true`, the worker still returns a valid audit from the deterministic fallback and the UI labels it as a development fallback.
+Leave `ANTHROPIC_API_KEY` empty to skip live calls. Real Claude runs when `USE_REAL_CLAUDE=true`, including while PageSpeed, Search Console, and DataForSEO stay mocked. The model is `claude-sonnet-4-6`. See [Safe Testing / Claude API Usage](#safe-testing--claude-api-usage).
 
 ## Mock mode
 
@@ -189,7 +216,9 @@ Schedule it monthly. The handler enqueues one audit per website that has a busin
 
 ## PDF reports
 
-Puppeteer writes `{auditId}.pdf` under the OS temp `reports` directory (`/tmp/reports` on Unix). Set `REPORTS_DIR` to override. Downloads go through the report API, which only serves files inside that directory. `src/services/storage.js` is the place to swap in Cloudflare R2 later.
+The worker renders the report with Puppeteer, then `src/services/storage.js` uploads `{auditId}.pdf` to a private Supabase Storage bucket. `GET /api/audits/[id]/report` reads that same object, so Vercel can download a file the worker created on another machine.
+
+Local development uses the OS temp `reports` directory when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are unset. `NODE_ENV=production` refuses local disk and fails the audit with a stored error if Storage is not configured. `REPORTS_DIR` overrides the local directory only.
 
 ## WhatsApp mock
 
@@ -205,33 +234,75 @@ The mock SID is stored on `DeliveryLog`. Email is logged the same way and is not
 
 ## Production integrations
 
-Set `USE_MOCKS=false` and provide `PAGESPEED_API_KEY`, `GSC_ACCESS_TOKEN`, `GSC_SITE_URL`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, and Twilio credentials. Each service returns the same shape the pipeline already stores. Claude is used when `ANTHROPIC_API_KEY` is set and mocks are off.
+Set `USE_MOCKS=true` to keep PageSpeed, Search Console, DataForSEO, and Twilio mocked, and set `USE_REAL_CLAUDE=true` with `ANTHROPIC_API_KEY` to call Claude. Set `USE_MOCKS=false` only when `PAGESPEED_API_KEY`, `GSC_ACCESS_TOKEN`, `GSC_SITE_URL`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, and Twilio credentials are present. Each service returns the same shape the pipeline already stores. Claude follows `USE_REAL_CLAUDE`, not the mock switch.
 
-## Deployment
+## Production deployment
 
-- Next.js app: Vercel, with the env vars above.
-- Database: Supabase or Neon PostgreSQL.
-- Queue: Upstash Redis (`rediss://` URL).
-- Cron: cron-job.org hitting the protected endpoint.
-- Worker: a long-running Node process (`npm run worker`) on Railway, Fly, Render, or a VM.
+Vercel serves the Next.js UI and API, including the BullMQ producer. It does not run the worker. A queued audit stays `QUEUED` until the worker process is running.
 
-Vercel serverless cannot hold a persistent BullMQ worker. Do not expect queued audits to finish unless the worker process is running somewhere that can see the same Redis and Postgres.
+### Vercel
+
+Set these environment variables on the Vercel project. `DATABASE_URL` and `DIRECT_URL` must exist at build time because `postinstall` runs `prisma generate`.
+
+`DATABASE_URL`, `DIRECT_URL`, `AUTH_SECRET`, `ADMIN_EMAIL`, `ADMIN_PASSWORD`, `REDIS_URL`, `USE_MOCKS`, `CRON_SECRET`, `ALLOW_DEMO_LOGIN=false`, `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_STORAGE_BUCKET`.
+
+Use the Upstash `rediss://` URL. Do not use `redis://127.0.0.1:6379`.
+
+`GET /api/health` reports `database`, `redis`, `storage`, and `worker` without returning secrets. `worker` is `listening` only after the separate process has written a heartbeat.
+
+### Supabase PostgreSQL
+
+Use the direct 5432 connection string for both `DATABASE_URL` and `DIRECT_URL`, with `sslmode=require`. Apply the schema without dropping data:
+
+```bash
+npx prisma generate
+npx prisma db push
+```
+
+### Supabase Storage
+
+In the Supabase dashboard, create a private bucket named `audit-reports` (or the name you set in `SUPABASE_STORAGE_BUCKET`). Copy the project URL and the service role key. Put the same three Storage variables on Vercel and on the worker. The worker creates the bucket if the service role is allowed to, but creating it in the dashboard is the reliable setup. Do not expose the service role key to the browser.
+
+### Upstash Redis
+
+Create a Redis database (Redis 5 or newer). Copy the TLS connection URL into `REDIS_URL` for both Vercel and the worker. BullMQ needs that TCP URL, not the Upstash REST URL. `REDIS_TOKEN` is only needed when the URL has no password.
+
+### Render worker
+
+Use a Render **Background Worker** with runtime **Docker** and Dockerfile path `Dockerfile.worker`. Do not use a Web Service. This process does not listen on a port, and Render will restart a Web Service that never opens one.
+
+Do not use Render's native Node runtime. That image has no Chromium libraries, so PDF generation fails. The Dockerfile installs those libraries, downloads Puppeteer's Chrome, and starts `npm run worker` (`tsx src/workers/index.js`).
+
+Leave Render's build command, start command, and Docker command empty. The image `CMD` is the start command.
+
+Copy `DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `USE_MOCKS=true`, `USE_REAL_CLAUDE=true`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` from the Vercel project. Keep `ANTHROPIC_API_KEY` on the server only. The image does not contain secrets. A healthy log says `listening on seo-audit-jobs`, `storage supabase`, and `[AI] Using real Claude API` when the Claude flag is on. Render sends `SIGTERM` on shutdown, and the worker closes the BullMQ connection before it exits.
+
+### cron-job.org
+
+This project does not use Vercel Cron. Create a cron-job.org job:
+
+- URL: `https://YOUR_DOMAIN/api/cron/audits`
+- Method: `POST`
+- Schedule: monthly
+- Header: `Authorization: Bearer YOUR_CRON_SECRET`
+
+A missing or wrong secret returns 401. The route enqueues one audit per website that has a business type, city, state, and keyword. The worker still has to be running to process those jobs.
 
 ## Troubleshooting
 
 - **Redis connection**: BullMQ needs Redis 5 or newer. A Windows Redis 3.x service will be rejected. Confirm `REDIS_URL` and that the worker logs `listening on seo-audit-jobs`. The connection helper sets `maxRetriesPerRequest: null`.
 - **Supabase connection**: encode reserved characters in the password and include `sslmode=require`. Use the direct 5432 URL for `DIRECT_URL`.
 - **Prisma**: run `npx prisma generate` after install and `npx prisma db push` before the first audit.
-- **Claude key**: leave it empty for the fallback. A key with `USE_MOCKS=true` still uses the fallback.
-- **Puppeteer**: the first install downloads Chrome. On a server, the worker image needs the Puppeteer system libraries.
-- **Worker not running**: the audit stays `QUEUED`. Start `npm run worker`.
+- **Claude key**: leave it empty for the fallback. With a key, Claude runs even when `USE_MOCKS=true`.
+- **Puppeteer**: use `Dockerfile.worker` on the worker host. The first local install downloads Chrome.
+- **Worker not running**: `/api/health` shows `worker: not_seen` and the audit stays `QUEUED`. Start `npm run worker`.
 - **Queue stuck**: failed attempts retry up to three times. The audit page shows `FAILED` and the error after the last attempt.
-- **PDF failure**: the audit is marked failed and can be retried. Check that the temp directory is writable.
+- **PDF or Storage failure**: the audit is marked `FAILED` with the Storage or Puppeteer error. Confirm the bucket and the service role key on both hosts.
 
 ## Known limitations
 
 - External SEO providers and WhatsApp are mocks when `USE_MOCKS=true`.
 - Email is logged, not sent, unless you later attach a transport in `sendReportEmail`.
-- The worker is a separate process from the Next.js server.
-- Report files live on local disk, so a serverless download only works on the machine that generated the PDF.
+- The worker is a separate process from the Next.js server. Vercel cannot host it.
+- Production PDFs live in Supabase Storage. Local disk is for development only.
 - Demo login should be turned off with `ALLOW_DEMO_LOGIN=false` outside a private demo.

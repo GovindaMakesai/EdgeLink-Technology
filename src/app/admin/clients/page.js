@@ -18,11 +18,12 @@ export default async function ClientsPage() {
         <div>
           <p className="eyebrow">Clients</p>
           <h1>Accounts</h1>
-          <p className="lede">Example Dental Clinic is demo data, not a real customer.</p>
+          <p className="lede">The demo account is sample client data. Audit URLs come from the form, not from this name.</p>
         </div>
         <ClientCreate />
       </header>
       <section className="panel">
+        <div className="table-wrap">
         <table className="data">
           <thead><tr><th>Client</th><th>Contact</th><th>Websites</th><th>Added</th></tr></thead>
           <tbody>
@@ -36,6 +37,7 @@ export default async function ClientsPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

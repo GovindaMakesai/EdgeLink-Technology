@@ -5,18 +5,18 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { Button, Field } from '@/components/ui/primitives';
 
-export function AuditForm({ clients }) {
+export function AuditForm({ clients, defaults }) {
   const router = useRouter();
   const [pending, setPending] = useState(false);
   const demo = clients.find((client) => client.isDemo) || clients[0];
   const [form, setForm] = useState({
-    url: 'https://example-dental-clinic.com',
+    url: defaults?.url || 'https://www.edgelinktechnology.com/',
     clientId: demo?.id || '',
     clientName: '',
-    businessType: 'Dental Clinic',
-    city: 'Pune',
-    state: 'Maharashtra',
-    targetKeyword: 'dental clinic pune',
+    businessType: defaults?.businessType || 'Digital marketing agency',
+    city: defaults?.city || '',
+    state: defaults?.state || '',
+    targetKeyword: defaults?.targetKeyword || 'edgelink technology',
   });
 
   function update(event) {
@@ -48,6 +48,7 @@ export function AuditForm({ clients }) {
         <div className="wide">
           <Field label="Website URL">
             <input name="url" value={form.url} onChange={update} required inputMode="url" autoComplete="url" />
+            <p className="form-note">Demo URL — you can replace this with any public website.</p>
           </Field>
         </div>
         <Field label="Client">
@@ -74,7 +75,7 @@ export function AuditForm({ clients }) {
           <input name="state" value={form.state} onChange={update} required />
         </Field>
       </div>
-      <div style={{ marginTop: 16 }}>
+      <div className="form-actions">
         <Button type="submit" disabled={pending}>{pending ? 'Queuing' : 'Start SEO audit'}</Button>
       </div>
     </form>
