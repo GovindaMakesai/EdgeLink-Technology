@@ -7,20 +7,23 @@ import { analyzeSignals } from '../ai/claude';
 import { generatePdfReport } from '../reports/pdf';
 
 function isTransient(error) {
+  if (error?.transient) return true;
   const message = String(error?.message || '').toLowerCase();
   return (
     message.includes('econnrefused') ||
     message.includes('etimedout') ||
     message.includes('timeout') ||
+    message.includes('fetch failed') ||
     message.includes('redis') ||
     message.includes("can't reach database") ||
     message.includes('prisma') ||
     message.includes('browser') ||
-    message.includes('puppeteer')
+    message.includes('puppeteer') ||
+    (message.includes('supabase storage') && (message.includes('http 5') || message.includes('http 429') || message.includes('http 408')))
   );
 }
 
-async function setStage(auditId, jobRecordId, step, extra = {}) {
+async function setStage(auditId, jobRecordId, step, extra = {}, onProgress) {
   const meta = stepMeta(step);
   await prisma.audit.update({
     where: { id: auditId },
@@ -43,7 +46,12 @@ async function setStage(auditId, jobRecordId, step, extra = {}) {
       },
     });
   }
-  console.log(`[worker] ${auditId} → ${step}`);
+  console.log(`[worker] ${auditId} → ${step} (${meta.progress}%)`);
+  if (onProgress) {
+    await Promise.resolve(onProgress(meta.progress)).catch((error) => {
+      console.error(`[worker] progress update failed: ${error.message}`);
+    });
+  }
 }
 
 async function saveSignals(auditId, signals) {
@@ -183,29 +191,29 @@ export async function runAuditPipeline(auditId, options = {}) {
   try {
     await setStage(audit.id, jobRecordId, 'crawling', {
       startedAt: audit.startedAt || new Date(),
-    });
+    }, options.onProgress);
     signals.crawl = await crawlUrl(audit.website.url);
 
-    await setStage(audit.id, jobRecordId, 'pagespeed');
+    await setStage(audit.id, jobRecordId, 'pagespeed', {}, options.onProgress);
     await capture(signals, 'pagespeed', 'pagespeed', () => getPageSpeed(audit.website.url));
 
-    await setStage(audit.id, jobRecordId, 'search-console');
+    await setStage(audit.id, jobRecordId, 'search-console', {}, options.onProgress);
     await capture(signals, 'gsc', 'search-console', () => getSearchConsole({ siteUrl: audit.website.url }));
 
-    await setStage(audit.id, jobRecordId, 'schema');
+    await setStage(audit.id, jobRecordId, 'schema', {}, options.onProgress);
     signals.schema = analyzeSchema(signals.crawl);
 
-    await setStage(audit.id, jobRecordId, 'on-page');
+    await setStage(audit.id, jobRecordId, 'on-page', {}, options.onProgress);
     signals.onPage = analyzeOnPage(signals.crawl);
     signals.technical = analyzeTechnical(signals.crawl);
 
-    await setStage(audit.id, jobRecordId, 'robots-sitemap');
+    await setStage(audit.id, jobRecordId, 'robots-sitemap', {}, options.onProgress);
     signals.robots = analyzeRobotsAndSitemap(signals.crawl);
 
-    await setStage(audit.id, jobRecordId, 'rankings');
+    await setStage(audit.id, jobRecordId, 'rankings', {}, options.onProgress);
     await capture(signals, 'rankings', 'rankings', () => getRankings({ keyword: audit.targetKeyword }));
 
-    await setStage(audit.id, jobRecordId, 'ai-analysis');
+    await setStage(audit.id, jobRecordId, 'ai-analysis', {}, options.onProgress);
     const analysis = await analyzeSignals({
       url: audit.website.url,
       businessType: audit.businessType,
@@ -222,7 +230,7 @@ export async function runAuditPipeline(auditId, options = {}) {
       rankings: signals.rankings,
     });
 
-    await setStage(audit.id, jobRecordId, 'saving');
+    await setStage(audit.id, jobRecordId, 'saving', {}, options.onProgress);
     await saveSignals(audit.id, signals);
     const resultData = {
       auditVersion: analysis.data.audit_version,
@@ -241,7 +249,7 @@ export async function runAuditPipeline(auditId, options = {}) {
       update: resultData,
     });
 
-    await setStage(audit.id, jobRecordId, 'generating-pdf');
+    await setStage(audit.id, jobRecordId, 'generating-pdf', {}, options.onProgress);
     const saved = await generatePdfReport(
       {
         result: {
@@ -284,7 +292,7 @@ export async function runAuditPipeline(auditId, options = {}) {
       },
     });
 
-    await setStage(audit.id, jobRecordId, 'notifying');
+    await setStage(audit.id, jobRecordId, 'notifying', {}, options.onProgress);
     const fresh = await prisma.audit.findUnique({
       where: { id: audit.id },
       include: {
@@ -295,7 +303,7 @@ export async function runAuditPipeline(auditId, options = {}) {
     });
     await deliverAudit({ ...fresh, status: 'DELIVERING' });
 
-    await setStage(audit.id, jobRecordId, 'completed', { completedAt: new Date() });
+    await setStage(audit.id, jobRecordId, 'completed', { completedAt: new Date() }, options.onProgress);
     if (jobRecordId) {
       await prisma.auditJob.update({
         where: { id: jobRecordId },

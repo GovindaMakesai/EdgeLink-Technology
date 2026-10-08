@@ -4,9 +4,11 @@ import { writeReport } from '../services/storage';
 
 export async function generatePdfReport(report, fileName) {
   const html = renderReportHtml(report);
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
   const browser = await puppeteer.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'],
+    executablePath,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage', '--disable-gpu'],
   });
   try {
     const page = await browser.newPage();
