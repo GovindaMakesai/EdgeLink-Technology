@@ -1,0 +1,162 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model Client {
+  id         String        @id @default(cuid())
+  name       String
+  email      String?
+  phone      String?
+  isDemo     Boolean       @default(false)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+  websites   Website[]
+  deliveries DeliveryLog[]
+
+  @@index([isDemo])
+  @@index([name])
+}
+
+model Website {
+  id            String   @id @default(cuid())
+  clientId      String
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  url           String
+  domain        String
+  businessType  String?
+  city          String?
+  state         String?
+  targetKeyword String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  audits        Audit[]
+
+  @@unique([clientId, url])
+  @@index([clientId])
+  @@index([domain])
+}
+
+model Audit {
+  id            String       @id @default(cuid())
+  websiteId     String
+  website       Website      @relation(fields: [websiteId], references: [id], onDelete: Cascade)
+  status        AuditStatus  @default(QUEUED)
+  progress      Int          @default(0)
+  currentStep   String       @default("queued")
+  businessType  String
+  city          String
+  state         String
+  targetKeyword String
+  errorMessage  String?
+  bullJobId     String?
+  queuedAt      DateTime     @default(now())
+  startedAt     DateTime?
+  completedAt   DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  signals       AuditSignal?
+  result        AuditResult?
+  report        Report?
+  jobs          AuditJob[]
+  deliveries    DeliveryLog[]
+
+  @@index([websiteId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum AuditStatus {
+  QUEUED
+  CRAWLING
+  ANALYZING
+  GENERATING_REPORT
+  DELIVERING
+  COMPLETED
+  FAILED
+}
+
+model AuditJob {
+  id         String   @id @default(cuid())
+  auditId    String
+  audit      Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  bullJobId  String?
+  status     String
+  progress   Int      @default(0)
+  stage      String   @default("queued")
+  error      String?
+  attempts   Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([auditId])
+  @@index([status])
+  @@index([bullJobId])
+}
+
+model AuditSignal {
+  id          String   @id @default(cuid())
+  auditId     String   @unique
+  audit       Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  crawl       Json?
+  onPage      Json?
+  technical   Json?
+  schemaData  Json?
+  robots      Json?
+  pagespeed   Json?
+  gsc         Json?
+  rankings    Json?
+  stageErrors Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditResult {
+  id               String   @id @default(cuid())
+  auditId          String   @unique
+  audit            Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  auditVersion     String
+  overallScore     Int
+  scoreBreakdown   Json
+  criticalIssues   Json
+  importantIssues  Json
+  quickWins        Json
+  recommendations  Json
+  executiveSummary String
+  aiSource         String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Report {
+  id        String   @id @default(cuid())
+  auditId   String   @unique
+  audit     Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  fileName  String
+  filePath  String
+  bytes     Int?
+  createdAt DateTime @default(now())
+}
+
+model DeliveryLog {
+  id         String   @id @default(cuid())
+  auditId    String
+  audit      Audit    @relation(fields: [auditId], references: [id], onDelete: Cascade)
+  clientId   String?
+  client     Client?  @relation(fields: [clientId], references: [id])
+  channel    String
+  status     String
+  provider   String
+  externalId String?
+  detail     Json?
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@index([auditId])
+  @@index([channel])
+}
