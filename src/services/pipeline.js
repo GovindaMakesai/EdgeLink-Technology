@@ -78,7 +78,7 @@ async function capture(signals, key, label, task) {
     signals[key] = await task();
   } catch (error) {
     signals.stageErrors.push({ stage: label, message: error.message, at: new Date().toISOString() });
-    signals[key] = { error: error.message, failed: true };
+    signals[key] = { status: 'FAILED', analyzed: false, failed: true, error: error.message, reason: error.message };
     console.log(`[worker] ${label} continued after error: ${error.message}`);
   }
 }
@@ -112,9 +112,9 @@ export async function deliverAudit(audit) {
         clientId: client.id,
         channel: 'whatsapp',
         status: whatsapp.status,
-        provider: whatsapp.sid?.startsWith('MOCK_') ? 'twilio-mock' : 'twilio',
+        provider: whatsapp.sid ? 'twilio' : 'none',
         externalId: whatsapp.sid || null,
-        detail: { score, report: audit.report.fileName },
+        detail: { score, report: audit.report.fileName, reason: whatsapp.reason || null },
       },
     });
   } catch (error) {
@@ -170,6 +170,20 @@ export async function markAuditFailed(auditId, message) {
   });
 }
 
+function honestScore(data, signals) {
+  const breakdown = { ...(data.score_breakdown || {}) };
+  const parts = [breakdown.technical, breakdown.on_page, breakdown.content, breakdown.schema];
+  if (signals.pagespeed?.analyzed === true && !signals.pagespeed.failed) {
+    parts.push(breakdown.core_web_vitals);
+    breakdown.core_web_vitals_status = 'COMPLETED';
+  } else {
+    breakdown.core_web_vitals_status = signals.pagespeed?.failed ? 'FAILED' : 'NOT_ANALYZABLE';
+  }
+  const numbers = parts.filter((value) => Number.isFinite(value));
+  const overall = numbers.length ? Math.round(numbers.reduce((sum, value) => sum + value, 0) / numbers.length) : 0;
+  return { ...data, overall_score: overall, score_breakdown: breakdown };
+}
+
 export async function runAuditPipeline(auditId, options = {}) {
   const audit = await prisma.audit.findUnique({
     where: { id: auditId },
@@ -201,14 +215,14 @@ export async function runAuditPipeline(auditId, options = {}) {
     await capture(signals, 'gsc', 'search-console', () => getSearchConsole({ siteUrl: audit.website.url, keyword: audit.targetKeyword }));
 
     await setStage(audit.id, jobRecordId, 'schema', {}, options.onProgress);
-    signals.schema = analyzeSchema(signals.crawl);
+    signals.schema = { ...analyzeSchema(signals.crawl), status: 'COMPLETED', method: 'deterministic' };
 
     await setStage(audit.id, jobRecordId, 'on-page', {}, options.onProgress);
-    signals.onPage = analyzeOnPage(signals.crawl);
-    signals.technical = analyzeTechnical(signals.crawl);
+    signals.onPage = { ...analyzeOnPage(signals.crawl), status: 'COMPLETED', method: 'deterministic' };
+    signals.technical = { ...analyzeTechnical(signals.crawl), status: 'COMPLETED', method: 'deterministic' };
 
     await setStage(audit.id, jobRecordId, 'robots-sitemap', {}, options.onProgress);
-    signals.robots = analyzeRobotsAndSitemap(signals.crawl);
+    signals.robots = { ...analyzeRobotsAndSitemap(signals.crawl), status: 'COMPLETED', method: 'deterministic' };
 
     await setStage(audit.id, jobRecordId, 'rankings', {}, options.onProgress);
     await capture(signals, 'rankings', 'rankings', () => getRankings({ keyword: audit.targetKeyword, url: audit.website.url }));
@@ -230,12 +244,17 @@ export async function runAuditPipeline(auditId, options = {}) {
       rankings: signals.rankings,
     });
 
+    if (analysis.source !== 'claude') {
+      throw new Error('The audit did not receive a Claude analysis. No score was saved.');
+    }
+    const scored = honestScore(analysis.data, signals);
+
     await setStage(audit.id, jobRecordId, 'saving', {}, options.onProgress);
     await saveSignals(audit.id, signals);
     const resultData = {
-      auditVersion: analysis.data.audit_version,
-      overallScore: analysis.data.overall_score,
-      scoreBreakdown: analysis.data.score_breakdown,
+      auditVersion: scored.audit_version,
+      overallScore: scored.overall_score,
+      scoreBreakdown: scored.score_breakdown,
       criticalIssues: analysis.data.critical_issues,
       importantIssues: analysis.data.important_issues,
       quickWins: analysis.data.quick_wins,

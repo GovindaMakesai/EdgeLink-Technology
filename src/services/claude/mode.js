@@ -5,5 +5,5 @@ export function realClaudeEnabled(env = process.env) {
 }
 
 export function aiModeLabel(source) {
-  return source === 'claude' ? 'Claude API' : 'Mock Mode';
+  return source === 'claude' ? 'Claude API' : 'Not completed';
 }

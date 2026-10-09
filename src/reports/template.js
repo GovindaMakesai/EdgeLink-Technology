@@ -107,33 +107,27 @@ export function renderReportHtml(report) {
     </table>
 
     <h2>Core Web Vitals</h2>
-    <p class="muted">${escapeHtml(pagespeed.simulated ? (pagespeed.note || 'Simulated PageSpeed lab data for the submitted URL. Not a live PageSpeed Insights response.') : 'Lab data')}</p>
+    ${pagespeed.analyzed ? `<p class="muted">Retrieved from PageSpeed Insights.</p>
     <table>
       ${scoreRow('Performance', pagespeed.categories?.performance?.score ?? '—')}
       ${scoreRow('LCP', audits['largest-contentful-paint']?.displayValue || '—')}
       ${scoreRow('CLS', audits['cumulative-layout-shift']?.displayValue || '—')}
       ${scoreRow('INP', audits['interaction-to-next-paint']?.displayValue || '—')}
-      ${scoreRow('Render blocking', audits['render-blocking-resources']?.description || '—')}
-      ${scoreRow('Unused JavaScript', audits['unused-javascript']?.displayValue || '—')}
-    </table>
+    </table>` : `<p class="muted">${escapeHtml(pagespeed.reason || 'Not analyzed. No lab data was collected.')}</p>`}
 
     <h2>Schema</h2>
     <p>Types: ${escapeHtml((schema.types || []).join(', ') || 'None detected')}</p>
     ${list(schema.observations || schema.findings?.map((item) => item.message) || [], (item) => escapeHtml(item))}
 
     <h2>Google Search Console</h2>
-    <p class="muted">Clicks ${escapeHtml(gsc.totalClicks ?? '—')} · Impressions ${escapeHtml(gsc.totalImpressions ?? '—')} · Coverage errors ${escapeHtml(gsc.indexCoverageErrors ?? '—')}</p>
+    ${gsc.analyzed ? `<p class="muted">Clicks ${escapeHtml(gsc.totalClicks ?? '—')} · Impressions ${escapeHtml(gsc.totalImpressions ?? '—')}</p>
     <table>
       <tr><th>Query</th><th>Clicks</th><th>Impressions</th><th>CTR</th><th>Position</th></tr>
       ${(gsc.rows || []).map((row) => `<tr><td>${escapeHtml(row.query)}</td><td>${escapeHtml(row.clicks)}</td><td>${escapeHtml(row.impressions)}</td><td>${escapeHtml(row.ctr)}</td><td>${escapeHtml(row.position)}</td></tr>`).join('')}
-    </table>
+    </table>` : `<p class="muted">${escapeHtml(gsc.reason || 'Not analyzed. Search Console was not authorized.')}</p>`}
 
     <h2>Rankings</h2>
-    <p>Client position ${escapeHtml(rankings.client_rank_position ?? '—')} · Search volume ${escapeHtml(rankings.keyword_search_volume ?? '—')}</p>
-    <table>
-      <tr><th>Rank</th><th>Domain</th></tr>
-      ${((rankings.tasks?.[0]?.result?.[0]?.items) || []).map((item) => `<tr><td>${escapeHtml(item.rank_absolute)}</td><td>${escapeHtml(item.domain)}</td></tr>`).join('')}
-    </table>
+    ${rankings.analyzed ? `<p>Client position ${escapeHtml(rankings.client_rank_position ?? '—')} · Search volume ${escapeHtml(rankings.keyword_search_volume ?? '—')}</p>` : `<p class="muted">${escapeHtml(rankings.reason || 'Not analyzed. No ranking provider was configured.')}</p>`}
   </main>
 </body>
 </html>`;

@@ -123,7 +123,7 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
           </div>
           <div style={{ marginTop: 12 }}>
             <Badge tone={(result?.aiSource || live.aiSource) === 'claude' ? 'good' : 'violet'}>
-              AI Analysis: {(result?.aiSource || live.aiSource) === 'claude' ? 'Claude API' : 'Mock Mode'}
+              AI Analysis: {(result?.aiSource || live.aiSource) === 'claude' ? 'Claude API' : 'Not completed'}
             </Badge>
           </div>
         </article>
@@ -153,12 +153,15 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
           <section className="split-3">
             <article className="panel">
               <h2>Score breakdown</h2>
+              {result.scoreBreakdown?.core_web_vitals_status && result.scoreBreakdown.core_web_vitals_status !== 'COMPLETED' ? (
+                <p className="form-note">Core Web Vitals are {result.scoreBreakdown.core_web_vitals_status.replaceAll('_', ' ').toLowerCase()} and are left out of this score.</p>
+              ) : null}
               <div style={{ marginTop: 16 }}><BreakdownBars breakdown={result.scoreBreakdown} /></div>
             </article>
             <article className="panel">
               <h2>Core Web Vitals</h2>
-              {pagespeed.simulated ? <p className="form-note">Simulated PageSpeed lab data for this URL. Not a live PageSpeed Insights response.</p> : null}
-              <div className="cwv-grid" style={{ marginTop: 14 }}>
+              {pagespeed.analyzed ? null : <p className="form-note">{pagespeed.reason || 'Core Web Vitals were not measured. No lab score is shown.'}</p>}
+              {pagespeed.analyzed ? <div className="cwv-grid" style={{ marginTop: 14 }}>
                 {cwv.map(([label, display, score]) => (
                   <div className="cwv" key={label}>
                     <div>
@@ -170,7 +173,7 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
                     </Badge>
                   </div>
                 ))}
-              </div>
+              </div> : null}
             </article>
             <article className="panel">
               <h2>Executive summary</h2>
@@ -231,11 +234,11 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
           <section className="split-2">
             <article className="panel">
               <h2>Queries</h2>
-              <p className="form-note">
-                {audit.signals?.gsc?.disclaimer || 'Search Console figures.'}
-              </p>
+              {audit.signals?.gsc?.analyzed ? (
+              <>
+              <p className="form-note">Retrieved from Google Search Console.</p>
               <p className="lede">
-                Illustrative clicks {formatNumber(audit.signals?.gsc?.totalClicks)} · illustrative impressions {formatNumber(audit.signals?.gsc?.totalImpressions)}
+                Clicks {formatNumber(audit.signals?.gsc?.totalClicks)} · impressions {formatNumber(audit.signals?.gsc?.totalImpressions)}
               </p>
               <QueryChart rows={audit.signals?.gsc?.rows} />
               <div className="table-wrap">
@@ -256,15 +259,21 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
                 </tbody>
               </table>
               </div>
+              </>
+              ) : <p className="form-note">{audit.signals?.gsc?.reason || 'Search Console was not analyzed. No query numbers are shown.'}</p>}
             </article>
             <article className="panel">
               <h2>Rankings</h2>
-              {audit.signals?.rankings?.simulated ? <p className="form-note">Simulated ranking sample for the submitted URL. Not a live DataForSEO response.</p> : null}
-              <p className="lede">
-                Illustrative position {audit.signals?.rankings?.client_rank_position ?? '—'} · illustrative volume {formatNumber(audit.signals?.rankings?.keyword_search_volume)}
-              </p>
-              <RankBars items={audit.signals?.rankings?.tasks?.[0]?.result?.[0]?.items} />
+              {audit.signals?.rankings?.analyzed ? (
+                <>
+                  <p className="lede">
+                    Position {audit.signals.rankings.client_rank_position ?? '—'} · volume {formatNumber(audit.signals.rankings.keyword_search_volume)}
+                  </p>
+                  <RankBars items={audit.signals.rankings.tasks?.[0]?.result?.[0]?.items} />
+                </>
+              ) : <p className="form-note">{audit.signals?.rankings?.reason || 'Rankings were not analyzed. No positions are shown.'}</p>}
               <h2 style={{ marginTop: 22 }}>Schema and crawl</h2>
+              <p className="form-note">Read from the live page. These checks are deterministic, not a Claude judgment.</p>
               <p className="lede">Types: {(audit.signals?.schemaData?.types || []).join(', ') || 'None detected'}</p>
               <p className="lede">Title: {audit.signals?.onPage?.title?.value || 'Missing'} · HTTP {audit.signals?.technical?.statusCode ?? '—'}</p>
               <p className="lede">Robots: {audit.signals?.robots?.robots?.exists ? 'Found' : 'Missing'} · Sitemap URLs: {audit.signals?.robots?.sitemap?.urlCount ?? 0}</p>

@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminLayout({ children }) {
   const session = await requireAdmin();
   return (
-    <Shell role="admin" userLabel={session.email || 'Admin'} mockMode={process.env.USE_MOCKS === 'true'} claudeLive={realClaudeEnabled()}>
+    <Shell role="admin" userLabel={session.email || 'Admin'} claudeLive={realClaudeEnabled()}>
       {children}
     </Shell>
   );

@@ -31,8 +31,8 @@ async function checkRedis() {
 export default async function SettingsPage() {
   const [database, redis] = await Promise.all([checkDatabase(), checkRedis()]);
   const rows = [
-    ['Mock mode', process.env.USE_MOCKS === 'true' ? 'On' : 'Off'],
-    ['AI analysis', realClaudeEnabled() ? 'Claude API' : 'Mock Mode'],
+    ['PageSpeed, Search Console, rankings', 'Collected only when that provider is configured. Otherwise the field is not analyzed.'],
+    ['AI analysis', realClaudeEnabled() ? 'Claude API' : 'Not enabled'],
     ['Database', database ? 'Connected' : 'Unreachable'],
     ['Redis', redis ? 'Connected' : 'Unreachable'],
     ['Cron secret', process.env.CRON_SECRET ? 'Configured' : 'Missing'],

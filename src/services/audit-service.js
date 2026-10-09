@@ -1,6 +1,7 @@
 import { prisma } from '../lib/prisma';
 import { demoFormDefaults } from '../lib/demo-target';
 import { assertPublicHttpUrl } from '../validations/url';
+import { validateIndianLocation } from '../validations/location';
 import { domainFromUrl } from '../lib/utils';
 import { enqueueAudit } from '../queues/audit-queue';
 
@@ -67,7 +68,17 @@ export async function ensureDemoClient() {
   });
 }
 
+const ACTIVE_AUDIT = ['QUEUED', 'CRAWLING', 'ANALYZING', 'GENERATING_REPORT', 'DELIVERING'];
+
 export async function createAuditRecord(input) {
+  const location = validateIndianLocation(input.city, input.state);
+  if (!location.ok) {
+    const error = new Error(location.error);
+    error.status = 400;
+    throw error;
+  }
+  const city = location.city;
+  const state = location.state;
   const url = assertPublicHttpUrl(input.url);
   const normalizedUrl = url.toString();
   let client = null;
@@ -106,17 +117,27 @@ export async function createAuditRecord(input) {
       url: normalizedUrl,
       domain,
       businessType: input.businessType,
-      city: input.city,
-      state: input.state,
+      city,
+      state,
       targetKeyword: input.targetKeyword,
     },
     update: {
       businessType: input.businessType,
-      city: input.city,
-      state: input.state,
+      city,
+      state,
       targetKeyword: input.targetKeyword,
     },
   });
+
+  const running = await prisma.audit.findFirst({
+    where: { websiteId: website.id, status: { in: ACTIVE_AUDIT } },
+    select: { id: true },
+  });
+  if (running) {
+    const error = new Error('An audit for this website is already running. Wait for it to finish before starting another.');
+    error.status = 409;
+    throw error;
+  }
 
   const audit = await prisma.audit.create({
     data: {
@@ -125,8 +146,8 @@ export async function createAuditRecord(input) {
       progress: 2,
       currentStep: 'queued',
       businessType: input.businessType,
-      city: input.city,
-      state: input.state,
+      city,
+      state,
       targetKeyword: input.targetKeyword,
     },
   });
@@ -183,15 +204,19 @@ export async function enqueueMonthlyAudits() {
   const created = [];
   for (const website of websites) {
     if (!website.businessType || !website.city || !website.state || !website.targetKeyword) continue;
-    const audit = await createAuditRecord({
-      url: website.url,
-      clientId: website.clientId,
-      businessType: website.businessType,
-      city: website.city,
-      state: website.state,
-      targetKeyword: website.targetKeyword,
-    });
-    created.push(audit.id);
+    try {
+      const audit = await createAuditRecord({
+        url: website.url,
+        clientId: website.clientId,
+        businessType: website.businessType,
+        city: website.city,
+        state: website.state,
+        targetKeyword: website.targetKeyword,
+      });
+      created.push(audit.id);
+    } catch (error) {
+      console.log(`[cron] skipped ${website.domain || website.id}: ${error.message}`);
+    }
   }
   return created;
 }

@@ -37,7 +37,7 @@ function isActive(pathname, link) {
   return pathname === link.href || pathname.startsWith(`${link.href}/`);
 }
 
-export function Shell({ role, userLabel, mockMode, claudeLive, children }) {
+export function Shell({ role, userLabel, claudeLive, children }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -113,8 +113,8 @@ export function Shell({ role, userLabel, mockMode, claudeLive, children }) {
             <span className="user-label">{userLabel}</span>
           </div>
           <div className="top-meta top-meta-end">
-            <Badge tone={mockMode ? 'violet' : 'good'}>{mockMode ? 'Simulated lab data' : 'Live integrations'}</Badge>
-            <Badge tone={claudeLive ? 'good' : 'violet'}>{claudeLive ? 'Claude API' : 'AI mock'}</Badge>
+            <Badge tone="good">Live website crawl</Badge>
+            <Badge tone={claudeLive ? 'good' : 'violet'}>{claudeLive ? 'Claude API' : 'Claude off'}</Badge>
             <Button variant="ghost" onClick={logout}>Sign out</Button>
           </div>
         </header>

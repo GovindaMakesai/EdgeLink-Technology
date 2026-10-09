@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { jsonError, requireApiAdmin } from '@/lib/http';
 import { enqueueAudit } from '@/queues/audit-queue';
+import { validateIndianLocation } from '@/validations/location';
 
 export const dynamic = 'force-dynamic';
 
@@ -10,8 +11,12 @@ export async function POST(_request, { params }) {
     requireApiAdmin();
     const audit = await prisma.audit.findUnique({ where: { id: params.id } });
     if (!audit) return NextResponse.json({ error: 'Audit not found' }, { status: 404 });
-    if (audit.status === 'CRAWLING' || audit.status === 'ANALYZING' || audit.status === 'GENERATING_REPORT' || audit.status === 'DELIVERING') {
+    if (audit.status === 'QUEUED' || audit.status === 'CRAWLING' || audit.status === 'ANALYZING' || audit.status === 'GENERATING_REPORT' || audit.status === 'DELIVERING') {
       return NextResponse.json({ error: 'This audit is already running' }, { status: 409 });
+    }
+    const location = validateIndianLocation(audit.city, audit.state);
+    if (!location.ok) {
+      return NextResponse.json({ error: location.error }, { status: 400 });
     }
 
     await prisma.audit.update({

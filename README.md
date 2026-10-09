@@ -1,28 +1,17 @@
 # EdgeLink Technology
 
-EdgeLink SEO Intelligence is a full-stack SEO automation dashboard for the EdgeLink technical assessment. An admin queues an audit, a BullMQ worker crawls the site, collects mocked search and performance signals, builds a structured SEO brief, stores the result in PostgreSQL, writes a PDF, and records a mock WhatsApp delivery.
+EdgeLink SEO Intelligence is a full-stack SEO automation dashboard for the EdgeLink technical assessment. An admin queues an audit for a real Indian city and state. A BullMQ worker crawls the public site, records deterministic on-page evidence, asks Claude to analyze that evidence, stores the result in PostgreSQL, and writes a PDF. PageSpeed, Search Console, rankings, and WhatsApp are included only when those providers are configured. Otherwise those fields stay not analyzed.
 
 ## Safe Testing / Claude API Usage
 
-The assessment demo mocks PageSpeed, Search Console, DataForSEO, and WhatsApp, and calls Claude when `USE_REAL_CLAUDE=true`. An empty key means no request is sent. Do not commit the key or prefix it with `NEXT_PUBLIC_`.
+Claude runs only when `USE_REAL_CLAUDE=true` and `ANTHROPIC_API_KEY` is set. An empty key or a failed request does not produce a substitute score. Do not commit the key or prefix it with `NEXT_PUBLIC_`.
 
 ```env
-USE_MOCKS=true
-USE_REAL_CLAUDE=false
-ANTHROPIC_API_KEY=
-```
-
-With those values, a full audit still runs: dashboard, BullMQ, Redis, worker, mock PageSpeed, mock Search Console, mock DataForSEO, mock Claude, PostgreSQL, and PDF. The audit screen shows **AI Analysis: Mock Mode**. The worker log says `[AI] Using mock Claude implementation`.
-
-`USE_MOCKS=true` mocks PageSpeed, Search Console, DataForSEO, and WhatsApp. It does not block Claude. Real Claude runs when `USE_REAL_CLAUDE=true` and `ANTHROPIC_API_KEY` is set, including while those providers stay mocked.
-
-```env
-USE_MOCKS=true
 USE_REAL_CLAUDE=true
 ANTHROPIC_API_KEY=your_key
 ```
 
-That path shows **AI Analysis: Claude API** and the worker log says `[AI] Using real Claude API`. A failed Claude request does not silently switch back to the mock brief. Keep the key in the ignored `.env` file only. Do not commit it, print it, or prefix it with `NEXT_PUBLIC_`.
+That path shows **AI Analysis: Claude API** and the worker log says `[AI] Using real Claude API`. City and state are checked against Indian locations before an audit is queued.
 
 ## Features
 
@@ -76,10 +65,10 @@ Copy `.env.example` to `.env`. Never commit `.env`. If the database password con
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | Yes | Admin password sign-in |
 | `REDIS_URL` | Yes | Shared Upstash Redis for the API producer and the worker |
 | `REDIS_TOKEN` | Only if the URL has no password | Optional Redis password |
-| `USE_REAL_CLAUDE` | No | `true` calls Claude even while `USE_MOCKS=true` |
+| `USE_REAL_CLAUDE` | Yes for an AI result | `true` calls Claude. A missing or failed call does not invent a score |
 | `ANTHROPIC_API_KEY` | Only for a real Claude test | Leave empty. Never commit a real key |
 | `ANTHROPIC_MODEL` | No | Defaults to `claude-sonnet-4-6` |
-| `USE_MOCKS` | Yes | `true` mocks PageSpeed, GSC, DataForSEO, and Twilio |
+| `USE_MOCKS` | No | Ignored by the audit. Missing providers are reported as not analyzed |
 | `CRON_SECRET` | For cron | Protects `POST /api/cron/audits` |
 | `ALLOW_DEMO_LOGIN` | Public deploy | Set `false` outside a private demo |
 | `SUPABASE_URL` | Production | Supabase project URL |
@@ -87,7 +76,7 @@ Copy `.env.example` to `.env`. Never commit `.env`. If the database password con
 | `SUPABASE_STORAGE_BUCKET` | Production | Private bucket, default `audit-reports` |
 | `NEXT_PUBLIC_APP_URL` | Production | Public origin, `https://edgelinktechnology.vercel.app` |
 
-`USE_MOCKS=true` skips Claude. The API key stays on the server and is never required for this mode.
+The API key stays on the server. An audit without `USE_REAL_CLAUDE=true` fails instead of inventing a score.
 
 ### Supabase
 
@@ -104,15 +93,11 @@ Use the Redis URL from the Upstash console. `rediss://` URLs already include the
 
 ### Anthropic
 
-Leave `ANTHROPIC_API_KEY` empty to skip live calls. Real Claude runs when `USE_REAL_CLAUDE=true`, including while PageSpeed, Search Console, and DataForSEO stay mocked. The model is `claude-sonnet-4-6`. See [Safe Testing / Claude API Usage](#safe-testing--claude-api-usage).
+Leave `ANTHROPIC_API_KEY` empty and no Claude request is sent. The model is `claude-sonnet-4-6`. See [Safe Testing / Claude API Usage](#safe-testing--claude-api-usage).
 
-## Mock mode
+## Evidence
 
-```env
-USE_MOCKS=true
-```
-
-`src/mocks/index.js` is the only switch. PageSpeed, Search Console, DataForSEO, and Twilio read it. The crawl, schema, on-page, robots, and sitemap steps still run.
+The crawl, schema, on-page, robots, and sitemap steps read the submitted public URL. PageSpeed, Search Console, and rankings run only when their credentials are set. Sample files under `src/mocks` are for isolated tests and are not used by the audit.
 
 ## Local setup
 
@@ -175,7 +160,7 @@ npm start
 
 ## End-to-end demo
 
-With Postgres, Redis, `USE_MOCKS=true`, and the worker running:
+With Postgres, Redis, `USE_REAL_CLAUDE=true`, and the worker running:
 
 1. Sign in as demo admin.
 2. Open **Start SEO audit**. The form is prefilled for Example Dental Clinic.
@@ -220,21 +205,13 @@ The worker renders the report with Puppeteer, then `src/services/storage.js` upl
 
 Local development uses the OS temp `reports` directory when `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are unset. `NODE_ENV=production` refuses local disk and fails the audit with a stored error if Storage is not configured. `REPORTS_DIR` overrides the local directory only.
 
-## WhatsApp mock
+## WhatsApp
 
-With `USE_MOCKS=true`, delivery calls `src/mocks/twilio.mock.js`, which logs:
-
-```text
-[MOCK WHATSAPP] → Client:
-[MOCK WHATSAPP] → Score:
-[MOCK WHATSAPP] → Report:
-```
-
-The mock SID is stored on `DeliveryLog`. Email is logged the same way and is not treated as delivered.
+Without Twilio credentials the delivery log is `not_sent` and no message is sent. Email is not sent unless `SMTP_HOST` is configured, and even then this build does not open a mail transport.
 
 ## Production integrations
 
-Set `USE_MOCKS=true` to keep PageSpeed, Search Console, DataForSEO, and Twilio mocked, and set `USE_REAL_CLAUDE=true` with `ANTHROPIC_API_KEY` to call Claude. Set `USE_MOCKS=false` only when `PAGESPEED_API_KEY`, `GSC_ACCESS_TOKEN`, `GSC_SITE_URL`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, and Twilio credentials are present. Each service returns the same shape the pipeline already stores. Claude follows `USE_REAL_CLAUDE`, not the mock switch.
+Set `USE_REAL_CLAUDE=true` and `ANTHROPIC_API_KEY` to call Claude. Add `PAGESPEED_API_KEY`, `GSC_ACCESS_TOKEN`, `GSC_SITE_URL`, `DATAFORSEO_LOGIN`, `DATAFORSEO_PASSWORD`, or Twilio credentials only for the provider you want collected. A missing provider is stored as not analyzed.
 
 ## Production deployment
 
@@ -275,7 +252,7 @@ Do not use Render's native Node runtime. That image has no Chromium libraries, s
 
 Leave Render's build command, start command, and Docker command empty. The image `CMD` is the start command.
 
-Copy `DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `USE_MOCKS=true`, `USE_REAL_CLAUDE=true`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` from the Vercel project. Keep `ANTHROPIC_API_KEY` on the server only. The image does not contain secrets. A healthy log says `listening on seo-audit-jobs`, `storage supabase`, and `[AI] Using real Claude API` when the Claude flag is on. Render sends `SIGTERM` on shutdown, and the worker closes the BullMQ connection before it exits.
+Copy `DATABASE_URL`, `DIRECT_URL`, `REDIS_URL`, `USE_REAL_CLAUDE=true`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET` from the Vercel project. Keep `ANTHROPIC_API_KEY` on the server only. The image does not contain secrets. A healthy log says `listening on seo-audit-jobs`, `storage supabase`, and `[AI] Using real Claude API` when the Claude flag is on. Render sends `SIGTERM` on shutdown, and the worker closes the BullMQ connection before it exits.
 
 ### cron-job.org
 
@@ -293,7 +270,7 @@ A missing or wrong secret returns 401. The route enqueues one audit per website 
 - **Redis connection**: BullMQ needs Redis 5 or newer. A Windows Redis 3.x service will be rejected. Confirm `REDIS_URL` and that the worker logs `listening on seo-audit-jobs`. The connection helper sets `maxRetriesPerRequest: null`.
 - **Supabase connection**: encode reserved characters in the password and include `sslmode=require`. Use the direct 5432 URL for `DIRECT_URL`.
 - **Prisma**: run `npx prisma generate` after install and `npx prisma db push` before the first audit.
-- **Claude key**: leave it empty for the fallback. With a key, Claude runs even when `USE_MOCKS=true`.
+- **Claude key**: leave it empty and the audit fails at the AI step. No substitute score is saved.
 - **Puppeteer**: use `Dockerfile.worker` on the worker host. The first local install downloads Chrome.
 - **Worker not running**: `/api/health` shows `worker: not_seen` and the audit stays `QUEUED`. Start `npm run worker`.
 - **Queue stuck**: failed attempts retry up to three times. The audit page shows `FAILED` and the error after the last attempt.
@@ -301,7 +278,7 @@ A missing or wrong secret returns 401. The route enqueues one audit per website 
 
 ## Known limitations
 
-- External SEO providers and WhatsApp are mocks when `USE_MOCKS=true`.
+- PageSpeed, Search Console, rankings, and WhatsApp stay not analyzed until their credentials are configured.
 - Email is logged, not sent, unless you later attach a transport in `sendReportEmail`.
 - The worker is a separate process from the Next.js server. Vercel cannot host it.
 - Production PDFs live in Supabase Storage. Local disk is for development only.

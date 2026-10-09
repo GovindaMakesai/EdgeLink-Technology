@@ -69,10 +69,11 @@ export function AuditForm({ clients, defaults }) {
           <input name="targetKeyword" value={form.targetKeyword} onChange={update} required />
         </Field>
         <Field label="City">
-          <input name="city" value={form.city} onChange={update} required />
+          <input name="city" value={form.city} onChange={update} required autoComplete="address-level2" />
         </Field>
         <Field label="State">
-          <input name="state" value={form.state} onChange={update} required />
+          <input name="state" value={form.state} onChange={update} required autoComplete="address-level1" />
+          <p className="form-note">Use a real city and the Indian state it belongs to. A mismatch is rejected before the audit starts.</p>
         </Field>
       </div>
       <div className="form-actions">

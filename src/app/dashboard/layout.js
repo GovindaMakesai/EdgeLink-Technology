@@ -14,7 +14,7 @@ export default async function DashboardLayout({ children }) {
     label = client?.name || label;
   }
   return (
-    <Shell role="client" userLabel={label} mockMode={process.env.USE_MOCKS === 'true'} claudeLive={realClaudeEnabled()}>
+    <Shell role="client" userLabel={label} claudeLive={realClaudeEnabled()}>
       {children}
     </Shell>
   );

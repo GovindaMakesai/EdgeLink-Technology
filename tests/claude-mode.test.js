@@ -19,7 +19,7 @@ describe('Claude mode', () => {
     expect(realClaudeEnabled({ USE_MOCKS: 'false', USE_REAL_CLAUDE: 'true' })).toBe(true);
   });
 
-  it('does not call the Claude API when USE_REAL_CLAUDE is false', async () => {
+  it('does not call the Claude API or return a mock score when USE_REAL_CLAUDE is false', async () => {
     process.env.USE_MOCKS = 'true';
     process.env.USE_REAL_CLAUDE = 'false';
     process.env.ANTHROPIC_API_KEY = 'test-key-not-sent';
@@ -28,23 +28,13 @@ describe('Claude mode', () => {
     const input = {
       url: 'https://www.wikipedia.org/',
       businessType: 'Encyclopedia',
-      city: 'Global',
+      city: 'Mumbai',
+      state: 'Maharashtra',
       keyword: 'wikipedia',
-      pagespeed: { simulated: true, audits: { 'largest-contentful-paint': { displayValue: '2.8 s' } } },
+      pagespeed: { status: 'NOT_ANALYZABLE', analyzed: false },
     };
-    const first = await analyzeSeoData(input);
-    const second = await analyzeSeoData(input);
-
-    expect(first.source).toBe('mock');
-    expect(first.data.overall_score).toBe(82);
-    expect(first.data.executive_summary).toContain('encyclopedia');
-    expect(first.brief.technicalIssues.join(' ')).toContain('wikipedia.org');
-    expect(first.brief.technicalIssues.length).toBeGreaterThan(0);
-    expect(first.brief.contentIssues.length).toBeGreaterThan(0);
-    expect(first.brief.keywordInsights.length).toBeGreaterThan(0);
-    expect(first.brief.recommendations.length).toBeGreaterThan(0);
-    expect(first.brief.priorityActions.length).toBeGreaterThan(0);
-    expect(second).toEqual(first);
+    await expect(analyzeSeoData(input)).rejects.toThrow('Real Claude analysis is not enabled');
+    await expect(analyzeSeoData(input)).rejects.toThrow('No audit result was generated');
     expect(Anthropic).not.toHaveBeenCalled();
   });
 

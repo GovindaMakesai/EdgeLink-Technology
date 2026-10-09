@@ -1,24 +1,15 @@
-import { createRequire } from 'node:module';
-
-const require = createRequire(import.meta.url);
-const { USE_MOCKS } = require('../mocks/index.js');
-const { buildPageSpeedMock, buildSearchConsoleMock, buildRankingsMock } = require('../mocks/simulated.js');
-const { sendWhatsApp: mockSendWhatsApp } = require('../mocks/twilio.mock.js');
+function unavailable(reason) {
+  return { status: 'NOT_ANALYZABLE', analyzed: false, simulated: false, reason };
+}
 
 export function mocksEnabled() {
-  return USE_MOCKS;
+  return false;
 }
 
 export async function getPageSpeed(url) {
-  if (USE_MOCKS) {
-    return buildPageSpeedMock(url);
-  }
-
   const key = process.env.PAGESPEED_API_KEY;
   if (!key) {
-    const error = new Error('PAGESPEED_API_KEY is not configured');
-    error.code = 'NOT_CONFIGURED';
-    throw error;
+    return unavailable('PageSpeed Insights is not configured, so no lab data was collected for this URL.');
   }
 
   const endpoint = new URL('https://www.googleapis.com/pagespeedonline/v5/runPagespeed');
@@ -36,6 +27,10 @@ export async function getPageSpeed(url) {
   const audits = lighthouse.audits || {};
   const pick = (id) => audits[id] ? { score: audits[id].score, displayValue: audits[id].displayValue, description: audits[id].description } : undefined;
   return {
+    status: 'COMPLETED',
+    analyzed: true,
+    simulated: false,
+    source: 'pagespeed',
     url,
     strategy: 'mobile',
     categories: {
@@ -53,17 +48,11 @@ export async function getPageSpeed(url) {
   };
 }
 
-export async function getSearchConsole({ siteUrl, keyword }) {
-  if (USE_MOCKS) {
-    return buildSearchConsoleMock({ siteUrl, keyword });
-  }
-
+export async function getSearchConsole({ siteUrl }) {
   const token = process.env.GSC_ACCESS_TOKEN;
   const site = process.env.GSC_SITE_URL || siteUrl;
   if (!token || !site) {
-    const error = new Error('GSC_ACCESS_TOKEN and GSC_SITE_URL are required when mocks are off');
-    error.code = 'NOT_CONFIGURED';
-    throw error;
+    return unavailable('Google Search Console is not authorized for this site, so no query data was collected.');
   }
 
   const endpoint = `https://searchconsole.googleapis.com/webmasters/v3/sites/${encodeURIComponent(site)}/searchAnalytics/query`;
@@ -91,6 +80,11 @@ export async function getSearchConsole({ siteUrl, keyword }) {
     position: row.position || 0,
   }));
   return {
+    status: 'COMPLETED',
+    analyzed: true,
+    simulated: false,
+    source: 'search-console',
+    siteUrl: site,
     rows,
     totalClicks: rows.reduce((sum, row) => sum + row.clicks, 0),
     totalImpressions: rows.reduce((sum, row) => sum + row.impressions, 0),
@@ -98,17 +92,11 @@ export async function getSearchConsole({ siteUrl, keyword }) {
   };
 }
 
-export async function getRankings({ keyword }) {
-  if (USE_MOCKS) {
-    return structuredClone(dataforseoMock);
-  }
-
+export async function getRankings({ keyword, url }) {
   const login = process.env.DATAFORSEO_LOGIN;
   const password = process.env.DATAFORSEO_PASSWORD;
   if (!login || !password) {
-    const error = new Error('DATAFORSEO_LOGIN and DATAFORSEO_PASSWORD are required when mocks are off');
-    error.code = 'NOT_CONFIGURED';
-    throw error;
+    return unavailable('A ranking provider is not configured, so no live keyword positions were collected.');
   }
 
   const response = await fetch('https://api.dataforseo.com/v3/serp/google/organic/live/advanced', {
@@ -123,24 +111,27 @@ export async function getRankings({ keyword }) {
   if (!response.ok) throw new Error(`DataForSEO request failed with HTTP ${response.status}`);
   const payload = await response.json();
   return {
+    status: 'COMPLETED',
+    analyzed: true,
+    simulated: false,
+    source: 'dataforseo',
+    url,
     tasks: payload.tasks || [],
     client_rank_position: null,
     keyword_search_volume: null,
   };
 }
 
-export async function sendWhatsApp({ clientId, pdfPath, score, to }) {
-  if (USE_MOCKS) {
-    return mockSendWhatsApp(clientId, pdfPath, score);
-  }
-
+export async function sendWhatsApp({ score, to }) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_WHATSAPP_FROM;
   if (!sid || !token || !from || !to) {
-    const error = new Error('Twilio WhatsApp credentials or recipient are not configured');
-    error.code = 'NOT_CONFIGURED';
-    throw error;
+    return {
+      status: 'not_sent',
+      sid: null,
+      reason: 'Twilio is not configured. No WhatsApp message was sent.',
+    };
   }
 
   const body = new URLSearchParams({
@@ -163,17 +154,13 @@ export async function sendWhatsApp({ clientId, pdfPath, score, to }) {
   return { status: payload.status || 'queued', sid: payload.sid };
 }
 
-export async function sendReportEmail({ to, subject, pdfPath, score }) {
-  console.log('[MOCK EMAIL] → Recipient:', to || 'missing');
-  console.log('[MOCK EMAIL] → Subject:', subject);
-  console.log('[MOCK EMAIL] → Report:', pdfPath);
-  console.log('[MOCK EMAIL] → Score:', `${score}/100`);
-
+export async function sendReportEmail() {
   if (!process.env.SMTP_HOST) {
     return {
-      status: 'logged',
-      provider: 'development-log',
+      status: 'not_sent',
+      provider: 'none',
       delivered: false,
+      error: 'Email delivery is not configured. No message was sent.',
     };
   }
 
