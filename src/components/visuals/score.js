@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { scoreLabel, scoreTone } from '@/lib/utils';
+import { breakdownRows } from '@/lib/score';
 
 export function ScoreRing({ score, caption = 'SEO health', delta }) {
   const [shown, setShown] = useState(0);
@@ -63,20 +64,13 @@ export function ScoreRing({ score, caption = 'SEO health', delta }) {
 }
 
 export function BreakdownBars({ breakdown }) {
-  const rows = [
-    ['Technical', breakdown?.technical],
-    ['On-page', breakdown?.on_page],
-    ['Content', breakdown?.content],
-    ['Vitals', breakdown?.core_web_vitals],
-    ['Schema', breakdown?.schema],
-  ];
   return (
     <div className="bars">
-      {rows.map(([label, amount]) => (
-        <div className="bar-row" key={label}>
-          <span>{label}</span>
-          <div className="bar-track"><div className="bar-fill" style={{ width: `${Number(amount) || 0}%` }} /></div>
-          <b>{Number.isFinite(Number(amount)) ? amount : '—'}</b>
+      {breakdownRows(breakdown).map((row) => (
+        <div className="bar-row" key={row.label}>
+          <span>{row.label}</span>
+          <div className="bar-track"><div className="bar-fill" style={{ width: `${row.note ? 0 : Number(row.value) || 0}%` }} /></div>
+          <b>{row.note || (Number.isFinite(Number(row.value)) ? row.value : '—')}</b>
         </div>
       ))}
     </div>

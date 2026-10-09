@@ -73,7 +73,7 @@ export function AuditForm({ clients, defaults }) {
         </Field>
         <Field label="State">
           <input name="state" value={form.state} onChange={update} required autoComplete="address-level1" />
-          <p className="form-note">Use a real city and the Indian state it belongs to. A mismatch is rejected before the audit starts.</p>
+          <p className="form-note">Registered business location. It must be a real city in that Indian state. It is stored separately from the website’s service area.</p>
         </Field>
       </div>
       <div className="form-actions">

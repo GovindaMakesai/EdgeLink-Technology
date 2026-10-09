@@ -25,6 +25,7 @@ async function readLimited(response) {
 async function fetchChecked(rawUrl, timeoutMs = TIMEOUT_MS) {
   let current = (await assertSafeCrawlTarget(rawUrl)).href;
   const started = Date.now();
+  const redirectChain = [];
   for (let hop = 0; hop < 5; hop += 1) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -41,14 +42,15 @@ async function fetchChecked(rawUrl, timeoutMs = TIMEOUT_MS) {
       if ([301, 302, 303, 307, 308].includes(response.status)) {
         const location = response.headers.get('location');
         if (!location) {
-          return { response, finalUrl: current, timingMs: Date.now() - started, hops: hop };
+          return { response, finalUrl: current, timingMs: Date.now() - started, hops: redirectChain.length, redirectChain };
         }
         const next = new URL(location, current);
         await assertSafeCrawlTarget(next.href);
+        redirectChain.push({ status: response.status, from: current, to: next.href });
         current = next.href;
         continue;
       }
-      return { response, finalUrl: current, timingMs: Date.now() - started, hops: hop };
+      return { response, finalUrl: current, timingMs: Date.now() - started, hops: redirectChain.length, redirectChain };
     } finally {
       clearTimeout(timer);
     }
@@ -132,7 +134,7 @@ async function fetchResource(url) {
 export async function crawlUrl(rawUrl) {
   const requested = String(rawUrl || '');
   try {
-    const { response, finalUrl, timingMs, hops } = await fetchChecked(requested);
+    const { response, finalUrl, timingMs, hops, redirectChain } = await fetchChecked(requested);
     const html = await readLimited(response);
     const parsed = analyzeHtml(html, finalUrl, response.status);
     const origin = new URL(finalUrl).origin;
@@ -179,6 +181,7 @@ export async function crawlUrl(rawUrl) {
       statusCode: response.status,
       timingMs,
       redirects: hops,
+      redirectChain: redirectChain || [],
       https: new URL(finalUrl).protocol === 'https:',
       headers: headerSnapshot(response.headers),
       ...parsed,

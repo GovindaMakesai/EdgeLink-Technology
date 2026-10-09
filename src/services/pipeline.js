@@ -5,6 +5,7 @@ import { analyzeOnPage, analyzeTechnical, analyzeSchema, analyzeRobotsAndSitemap
 import { getPageSpeed, getSearchConsole, getRankings, sendWhatsApp, sendReportEmail } from './integrations';
 import { analyzeSeoData } from './claude/claude.service';
 import { generatePdfReport } from '../reports/pdf';
+import { scoreFromBreakdown } from '../lib/score';
 
 function isTransient(error) {
   if (error?.transient) return true;
@@ -101,8 +102,9 @@ export async function deliverAudit(audit) {
   let whatsapp;
   try {
     whatsapp = await sendWhatsApp({
-      clientId: client.id,
-      pdfPath,
+      url: audit.website.url,
+      city: audit.city,
+      state: audit.state,
       score,
       to: client.phone,
     });
@@ -171,17 +173,12 @@ export async function markAuditFailed(auditId, message) {
 }
 
 function honestScore(data, signals) {
-  const breakdown = { ...(data.score_breakdown || {}) };
-  const parts = [breakdown.technical, breakdown.on_page, breakdown.content, breakdown.schema];
-  if (signals.pagespeed?.analyzed === true && !signals.pagespeed.failed) {
-    parts.push(breakdown.core_web_vitals);
-    breakdown.core_web_vitals_status = 'COMPLETED';
-  } else {
-    breakdown.core_web_vitals_status = signals.pagespeed?.failed ? 'FAILED' : 'NOT_ANALYZABLE';
-  }
-  const numbers = parts.filter((value) => Number.isFinite(value));
-  const overall = numbers.length ? Math.round(numbers.reduce((sum, value) => sum + value, 0) / numbers.length) : 0;
-  return { ...data, overall_score: overall, score_breakdown: breakdown };
+  const scored = scoreFromBreakdown(data.score_breakdown, signals.pagespeed);
+  return {
+    ...data,
+    overall_score: scored.overall ?? 0,
+    score_breakdown: scored.breakdown,
+  };
 }
 
 export async function runAuditPipeline(auditId, options = {}) {

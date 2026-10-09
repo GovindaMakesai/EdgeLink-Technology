@@ -102,10 +102,10 @@ export function analyzeTechnical(crawl) {
   }
   const headers = crawl?.headers || {};
   if (!headers['strict-transport-security']) {
-    findings.push(issue('hsts', 'low', 'Strict-Transport-Security header was not observed.'));
+    findings.push(issue('hsts', 'low', 'Strict-Transport-Security was absent on this response. That is a header observation, not a measured ranking change.'));
   }
   if (!headers['x-content-type-options']) {
-    findings.push(issue('nosniff', 'low', 'X-Content-Type-Options header was not observed.'));
+    findings.push(issue('nosniff', 'low', 'X-Content-Type-Options was absent on this response. That is a header observation, not a measured ranking change.'));
   }
 
   return {
@@ -119,6 +119,7 @@ export function analyzeTechnical(crawl) {
     robotsMeta: crawl?.robotsMeta || '',
     indexable: !(crawl?.robotsMeta && /noindex/i.test(crawl.robotsMeta)),
     headers,
+    redirectChain: crawl?.redirectChain || [],
     findings,
   };
 }
@@ -150,9 +151,9 @@ export function analyzeSchema(crawl) {
   if (!blocks.length && !errors.length) {
     findings.push(issue('schema-missing', 'important', 'No JSON-LD structured data was found.'));
   }
-  if (errors.length) {
-    findings.push(issue('schema-malformed', 'critical', `${errors.length} JSON-LD block${errors.length === 1 ? '' : 's'} could not be parsed.`));
-  }
+  errors.forEach((error) => {
+    findings.push(issue('schema-malformed', 'critical', `JSON-LD block ${error.index} failed to parse: ${error.message}`));
+  });
   if (blocks.length && !presentInteresting.length) {
     findings.push(issue('schema-generic', 'important', 'Structured data is present but no LocalBusiness, Organization, or medical type was detected.'));
   }

@@ -56,7 +56,11 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
       toast.error(data.error || 'Delivery failed');
       return;
     }
-    toast.success(`WhatsApp mock ${data.whatsapp.status}`);
+    if (data.whatsapp?.status === 'not_sent' || data.whatsapp?.status === 'failed') {
+      toast.error(data.whatsapp.reason || 'WhatsApp was not sent');
+    } else {
+      toast.success(`WhatsApp ${data.whatsapp?.status || 'accepted'}`);
+    }
     router.refresh();
   }
 
@@ -119,7 +123,8 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
             <div className="progress-track" aria-hidden="true">
               <div className="progress-fill" style={{ width: `${live.progress || 0}%` }} />
             </div>
-            <p className="lede">{live.progress || 0}% · {audit.businessType} · {audit.city}, {audit.state}</p>
+            <p className="lede">Pipeline progress {live.progress || 0}%. This is not the SEO score.</p>
+            <p className="lede">{audit.businessType} · Submitted location {audit.city}, {audit.state}</p>
           </div>
           <div style={{ marginTop: 12 }}>
             <Badge tone={(result?.aiSource || live.aiSource) === 'claude' ? 'good' : 'violet'}>
@@ -274,6 +279,11 @@ export function AuditWorkspace({ audit, history = [], allowDelivery = false }) {
               ) : <p className="form-note">{audit.signals?.rankings?.reason || 'Rankings were not analyzed. No positions are shown.'}</p>}
               <h2 style={{ marginTop: 22 }}>Schema and crawl</h2>
               <p className="form-note">Read from the live page. These checks are deterministic, not a Claude judgment.</p>
+              <p className="lede">Requested {audit.website?.url} · Final {audit.signals?.technical?.finalUrl || '—'} · Canonical {audit.signals?.technical?.canonical || 'Missing'}</p>
+              <p className="lede">Redirect hops {audit.signals?.technical?.redirects ?? 0}. Security headers are observations from the response, not ranking-penalty evidence.</p>
+              {(audit.signals?.schemaData?.malformed || []).map((error, index) => (
+                <p className="lede" key={index}>{typeof error === 'string' ? error : `JSON-LD block ${error.index}: ${error.message}`}</p>
+              ))}
               <p className="lede">Types: {(audit.signals?.schemaData?.types || []).join(', ') || 'None detected'}</p>
               <p className="lede">Title: {audit.signals?.onPage?.title?.value || 'Missing'} · HTTP {audit.signals?.technical?.statusCode ?? '—'}</p>
               <p className="lede">Robots: {audit.signals?.robots?.robots?.exists ? 'Found' : 'Missing'} · Sitemap URLs: {audit.signals?.robots?.sitemap?.urlCount ?? 0}</p>

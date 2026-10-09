@@ -78,7 +78,7 @@ export function renderReportHtml(report) {
       ${scoreRow('Technical', breakdown.technical)}
       ${scoreRow('On-page', breakdown.on_page)}
       ${scoreRow('Content', breakdown.content)}
-      ${scoreRow('Core Web Vitals', breakdown.core_web_vitals)}
+      ${scoreRow('Core Web Vitals', breakdown.core_web_vitals_status && breakdown.core_web_vitals_status !== 'COMPLETED' ? breakdown.core_web_vitals_status : breakdown.core_web_vitals)}
       ${scoreRow('Schema', breakdown.schema)}
     </table>
 

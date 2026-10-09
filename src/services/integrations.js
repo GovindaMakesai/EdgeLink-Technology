@@ -122,7 +122,11 @@ export async function getRankings({ keyword, url }) {
   };
 }
 
-export async function sendWhatsApp({ score, to }) {
+export function whatsAppBody({ url, city, state, score }) {
+  return `EdgeLink SEO report is ready for ${url}. Submitted location: ${city}, ${state}. Score: ${score}/100.`;
+}
+
+export async function sendWhatsApp({ url, city, state, score, to }) {
   const sid = process.env.TWILIO_ACCOUNT_SID;
   const token = process.env.TWILIO_AUTH_TOKEN;
   const from = process.env.TWILIO_WHATSAPP_FROM;
@@ -137,7 +141,7 @@ export async function sendWhatsApp({ score, to }) {
   const body = new URLSearchParams({
     To: to.startsWith('whatsapp:') ? to : `whatsapp:${to}`,
     From: from.startsWith('whatsapp:') ? from : `whatsapp:${from}`,
-    Body: `EdgeLink SEO report is ready. Score: ${score}/100.`,
+    Body: whatsAppBody({ url, city, state, score }),
   });
   const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
     method: 'POST',

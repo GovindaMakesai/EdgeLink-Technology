@@ -76,7 +76,16 @@ export function analyzeHtml(html, pageUrl, statusCode = 200) {
     try {
       jsonLd.push(JSON.parse(raw));
     } catch (error) {
-      jsonLdErrors.push({ index, message: error.message, snippet: raw.slice(0, 180) });
+      const match = String(error.message || '').match(/position\s+(\d+)/i);
+      const position = match ? Number(match[1]) : null;
+      const start = position == null ? 0 : Math.max(0, position - 40);
+      const end = position == null ? 180 : Math.min(raw.length, position + 40);
+      jsonLdErrors.push({
+        index,
+        message: error.message,
+        position,
+        excerpt: raw.slice(start, end),
+      });
     }
   });
 

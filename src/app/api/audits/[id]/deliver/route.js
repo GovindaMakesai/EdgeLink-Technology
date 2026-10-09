@@ -17,7 +17,7 @@ export async function POST(_request, { params }) {
     const delivery = await deliverAudit(audit);
     return NextResponse.json({
       ok: true,
-      whatsapp: { status: delivery.whatsapp.status, sid: delivery.whatsapp.sid },
+      whatsapp: { status: delivery.whatsapp.status, sid: delivery.whatsapp.sid, reason: delivery.whatsapp.reason || null },
       email: { status: delivery.email.status, provider: delivery.email.provider, delivered: delivery.email.delivered },
     });
   } catch (error) {
