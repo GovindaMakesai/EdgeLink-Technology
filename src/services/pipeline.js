@@ -228,7 +228,7 @@ export async function runAuditPipeline(auditId, options = {}) {
     await capture(signals, 'rankings', 'rankings', () => getRankings({ keyword: audit.targetKeyword, url: audit.website.url }));
 
     await setStage(audit.id, jobRecordId, 'ai-analysis', {}, options.onProgress);
-    const analysis = await analyzeSignals({
+    const analysis = await analyzeSeoData({
       url: audit.website.url,
       businessType: audit.businessType,
       city: audit.city,
